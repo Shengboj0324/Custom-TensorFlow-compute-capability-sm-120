@@ -1,0 +1,237 @@
+# TensorFlow sm_120 Build Environment - CentOS Stream 9
+# Alternative build environment for RTX 50-series GPU support
+
+FROM nvidia/cuda:12.8-devel-ubi9
+
+# Metadata
+LABEL maintainer="TensorFlow sm_120 Build Team"
+LABEL version="1.0"
+LABEL description="CentOS-based build environment for TensorFlow with RTX 50-series support"
+
+# Environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# CUDA environment
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=$CUDA_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+ENV CUDA_ROOT=$CUDA_HOME
+ENV CUDA_TOOLKIT_PATH=$CUDA_HOME
+
+# Build environment
+ENV CC=/usr/bin/clang
+ENV CXX=/usr/bin/clang++
+
+# TensorFlow build configuration
+ENV TF_ENABLE_XLA=1
+ENV TF_NEED_OPENCL_SYCL=0
+ENV TF_NEED_ROCM=0
+ENV TF_NEED_CUDA=1
+ENV TF_NEED_TENSORRT=0
+ENV TF_CUDA_VERSION=12.8
+ENV TF_CUDNN_VERSION=9
+ENV TF_CUDA_COMPUTE_CAPABILITIES=12.0
+ENV TF_SET_ANDROID_WORKSPACE=0
+
+# Install EPEL and PowerTools repositories
+RUN dnf install -y epel-release && \
+    dnf config-manager --set-enabled crb && \
+    dnf update -y
+
+# Install system dependencies
+RUN dnf groupinstall -y "Development Tools" && \
+    dnf install -y \
+    # Build tools
+    cmake \
+    ninja-build \
+    make \
+    autoconf \
+    automake \
+    libtool \
+    pkgconfig \
+    # Development libraries
+    openssl-devel \
+    libffi-devel \
+    zlib-devel \
+    bzip2-devel \
+    readline-devel \
+    sqlite-devel \
+    ncurses-devel \
+    xz-devel \
+    tk-devel \
+    libxml2-devel \
+    # Python development
+    python3 \
+    python3-devel \
+    python3-pip \
+    python3-setuptools \
+    python3-wheel \
+    # Utilities
+    git \
+    curl \
+    wget \
+    unzip \
+    zip \
+    which \
+    bc \
+    rsync \
+    && dnf clean all
+
+# Build and install LLVM 22 from source (CentOS doesn't have LLVM 22 packages)
+RUN mkdir -p /tmp/llvm-build && \
+    cd /tmp/llvm-build && \
+    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.0.0/llvm-project-22.0.0.src.tar.xz && \
+    tar -xf llvm-project-22.0.0.src.tar.xz && \
+    cd llvm-project-22.0.0.src && \
+    mkdir build && cd build && \
+    cmake -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DLLVM_ENABLE_PROJECTS="clang;lld" \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
+    -DLLVM_OPTIMIZED_TABLEGEN=ON \
+    ../llvm && \
+    ninja -j$(nproc) && \
+    ninja install && \
+    cd / && rm -rf /tmp/llvm-build && \
+    # Create symlinks
+    ln -sf /usr/local/bin/clang /usr/bin/clang && \
+    ln -sf /usr/local/bin/clang++ /usr/bin/clang++
+
+# Install cuDNN (manual installation for CentOS)
+# Note: cuDNN must be manually installed for CentOS builds
+# Users should mount cuDNN tarball or install via rpm package
+RUN mkdir -p /usr/local/cuda/lib64 && \
+    mkdir -p /usr/local/cuda/include && \
+    echo "#!/bin/bash" > /tmp/install-cudnn.sh && \
+    echo "# Manual cuDNN installation required for CentOS" >> /tmp/install-cudnn.sh && \
+    echo "# Download cuDNN 9.x for CUDA 12.8 from NVIDIA Developer" >> /tmp/install-cudnn.sh && \
+    echo "# Extract and copy files to /usr/local/cuda/" >> /tmp/install-cudnn.sh && \
+    echo "# Example: tar -xf cudnn-*.tar.xz && cp -r cuda/* /usr/local/cuda/" >> /tmp/install-cudnn.sh && \
+    chmod +x /tmp/install-cudnn.sh
+
+# Install Bazel via Bazelisk
+RUN BAZELISK_VERSION="v1.19.0" && \
+    wget -O /usr/local/bin/bazel \
+    "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-amd64" && \
+    chmod +x /usr/local/bin/bazel
+
+# Set up Python environment
+RUN python3 -m pip install --no-cache-dir --upgrade \
+    pip \
+    setuptools \
+    wheel && \
+    python3 -m pip install --no-cache-dir \
+    numpy==1.24.3 \
+    packaging \
+    requests \
+    six \
+    mock \
+    keras_preprocessing
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy build scripts
+COPY scripts/ /workspace/scripts/
+COPY patches/ /workspace/patches/
+
+# Make scripts executable
+RUN find /workspace -name "*.sh" -type f -exec chmod +x {} \;
+
+# Create CentOS-specific build script
+RUN cat > /workspace/build-tensorflow-centos.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Check cuDNN installation
+if [[ ! -f "/usr/local/cuda/lib64/libcudnn.so" ]] && [[ ! -f "/usr/lib64/libcudnn.so" ]]; then
+    log_warning "cuDNN not found in standard locations"
+    log_info "cuDNN installation options for CentOS:"
+    log_info "1. Download cuDNN 9.x tarball from NVIDIA Developer"
+    log_info "2. Extract: tar -xf cudnn-linux-x86_64-9.*.tar.xz"
+    log_info "3. Copy: cp -r cuda/include/* /usr/local/cuda/include/"
+    log_info "4. Copy: cp -r cuda/lib64/* /usr/local/cuda/lib64/"
+    log_info "5. Set permissions: chmod a+r /usr/local/cuda/include/cudnn*.h"
+    log_info "Continuing build - cuDNN will be required for final TensorFlow build"
+fi
+
+# Configuration
+TENSORFLOW_VERSION="\${TF_VERSION:-r2.20}"
+BUILD_DIR="/workspace/build"
+PATCHES_DIR="/workspace/patches"
+JOBS=\${BUILD_JOBS:-\$(nproc)}
+
+log_info "Starting CentOS TensorFlow sm_120 build..."
+
+# Clone TensorFlow
+if [[ ! -d "tensorflow" ]]; then
+    log_info "Cloning TensorFlow..."
+    git clone --depth 1 --branch "\$TENSORFLOW_VERSION" \
+        https://github.com/tensorflow/tensorflow.git
+fi
+
+cd tensorflow
+
+# Apply patches
+if [[ -d "\$PATCHES_DIR" ]]; then
+    for patch in "\$PATCHES_DIR"/*.patch; do
+        if [[ -f "\$patch" ]]; then
+            log_info "Applying \$(basename "\$patch")..."
+            git apply "\$patch" || log_warning "Patch may already be applied"
+        fi
+    done
+fi
+
+# Configure build
+log_info "Configuring TensorFlow..."
+export PYTHON_BIN_PATH=\$(which python3)
+python3 configure.py
+
+# Build TensorFlow
+log_info "Building TensorFlow (this may take several hours)..."
+bazel build \
+    --config=opt \
+    --config=cuda \
+    --copt=-Wno-error=c23-extensions \
+    --verbose_failures \
+    --jobs=\$JOBS \
+    //tensorflow:libtensorflow.so
+
+# Build wheel
+mkdir -p "\$BUILD_DIR"
+./bazel-bin/tensorflow/tools/pip_package/build_pip_package "\$BUILD_DIR"
+
+# Rename wheel
+cd "\$BUILD_DIR"
+wheel_file=\$(ls tensorflow*.whl 2>/dev/null | head -n1)
+if [[ -n "\$wheel_file" ]]; then
+    new_name=\$(echo "\$wheel_file" | sed 's/\.whl\$/_sm120_centos.whl/')
+    mv "\$wheel_file" "\$new_name"
+    log_success "Build completed: \$new_name"
+else
+    log_error "No wheel file found in \$BUILD_DIR"
+    exit 1
+fi
+EOF
+
+RUN chmod +x /workspace/build-tensorflow-centos.sh
+
+# Default command
+CMD ["/workspace/build-tensorflow-centos.sh"]

@@ -1,0 +1,34 @@
+diff --git a/third_party/xla/xla/service/gpu/fusions/triton/triton_support.cc b/third_party/xla/xla/service/gpu/fusions/triton/triton_support.cc
+index 1234567..abcdefg 100644
+--- a/third_party/xla/xla/service/gpu/fusions/triton/triton_support.cc
++++ b/third_party/xla/xla/service/gpu/fusions/triton/triton_support.cc
+@@ -45,7 +45,7 @@ limitations under the License.
+ 
+ namespace xla {
+ namespace gpu {
+-namespace triton_support {
++namespace triton_support_fixed {
+ 
+ // Function name collision fix for LLVM 22 compatibility
+-bool set_matrix3x3(const Matrix& matrix) {
++bool set_matrix_3x3(const Matrix& matrix) {
+   // Implementation remains the same
+   return matrix.is_valid() && matrix.size() == 9;
+ }
+@@ -67,7 +67,7 @@ bool IsTritonSupportedInstruction(const HloInstruction& instr,
+     case HloOpcode::kDot: {
+       const DotDimensionNumbers& dot_dims = instr.dot_dimension_numbers();
+       // Use the renamed function
+-      return set_matrix3x3(dot_dims.lhs_batch_dimensions()) &&
++      return set_matrix_3x3(dot_dims.lhs_batch_dimensions()) &&
+              dot_dims.rhs_batch_dimensions().size() <= 2;
+     }
+     case HloOpcode::kParameter:
+@@ -89,4 +89,4 @@ bool IsTritonSupportedInstruction(const HloInstruction& instr,
+   }
+ }
+ 
+-}  // namespace triton_support
++}  // namespace triton_support_fixed
+ }  // namespace gpu
+ }  // namespace xla

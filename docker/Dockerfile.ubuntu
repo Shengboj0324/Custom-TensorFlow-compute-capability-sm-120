@@ -1,0 +1,404 @@
+# TensorFlow sm_120 Build Environment - Ubuntu 22.04 LTS
+# Optimized for RTX 50-series GPU support with compute capability 12.0
+
+FROM nvidia/cuda:12.8-devel-ubuntu22.04
+
+# Metadata
+LABEL maintainer="TensorFlow sm_120 Build Team"
+LABEL version="1.0"
+LABEL description="Ubuntu-based build environment for TensorFlow with RTX 50-series support"
+
+# Environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# CUDA environment
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=$CUDA_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+ENV CUDA_ROOT=$CUDA_HOME
+ENV CUDA_TOOLKIT_PATH=$CUDA_HOME
+
+# Build environment
+ENV CC=/usr/bin/clang-22
+ENV CXX=/usr/bin/clang++-22
+ENV BAZEL_LINKLIBS=-l%:libstdc++.a
+ENV BAZEL_LINKOPTS=-static-libgcc
+
+# TensorFlow build configuration
+ENV TF_ENABLE_XLA=1
+ENV TF_NEED_OPENCL_SYCL=0
+ENV TF_NEED_ROCM=0
+ENV TF_NEED_CUDA=1
+ENV TF_NEED_TENSORRT=0
+ENV TF_CUDA_VERSION=12.8
+ENV TF_CUDNN_VERSION=9
+ENV TF_CUDA_COMPUTE_CAPABILITIES=12.0
+ENV TF_SET_ANDROID_WORKSPACE=0
+ENV BUILD_WITH_FULL_OPTIMIZATIONS=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
+    build-essential \
+    cmake \
+    make \
+    ninja-build \
+    pkg-config \
+    # Development tools
+    git \
+    curl \
+    wget \
+    unzip \
+    zip \
+    # Python development
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
+    python3-setuptools \
+    python3-wheel \
+    # System libraries
+    libc6-dev \
+    libssl-dev \
+    libffi-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    # Additional utilities
+    software-properties-common \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    bc \
+    rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install LLVM 22 (required for TensorFlow compilation)
+RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
+    echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-22 main" > /etc/apt/sources.list.d/llvm.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    clang-22 \
+    clang++-22 \
+    llvm-22 \
+    llvm-22-dev \
+    llvm-22-tools \
+    llvm-22-runtime \
+    libc++-22-dev \
+    libc++abi-22-dev \
+    lld-22 \
+    && rm -rf /var/lib/apt/lists/* && \
+    # Set up alternatives for clang
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100 && \
+    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-22 100
+
+# Install cuDNN 9.x for CUDA 12.8
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    libcudnn9-dev-cuda-12 \
+    libcudnn9-cuda-12 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Bazel via Bazelisk (automatically manages Bazel versions)
+RUN BAZELISK_VERSION="v1.19.0" && \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then BAZEL_ARCH="amd64"; else BAZEL_ARCH="$ARCH"; fi && \
+    wget -O /usr/local/bin/bazel \
+    "https://github.com/bazelbuild/bazelisk/releases/download/${BAZELISK_VERSION}/bazelisk-linux-${BAZEL_ARCH}" && \
+    chmod +x /usr/local/bin/bazel && \
+    # Verify Bazel installation
+    bazel version
+
+# Set up Python environment
+RUN python3 -m pip install --no-cache-dir --upgrade \
+    pip \
+    setuptools \
+    wheel && \
+    # Install Python build dependencies
+    python3 -m pip install --no-cache-dir \
+    numpy==1.24.3 \
+    packaging \
+    requests \
+    six \
+    mock \
+    keras_preprocessing \
+    # Development tools
+    pytest \
+    pytest-xdist
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Copy build scripts and patches
+COPY scripts/ /workspace/scripts/
+COPY patches/ /workspace/patches/
+
+# Make scripts executable
+RUN find /workspace -name "*.sh" -type f -exec chmod +x {} \;
+
+# Create optimized build script for container
+RUN cat > /workspace/build-tensorflow-optimized.sh << 'EOF'
+#!/bin/bash
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+
+# Configuration
+TENSORFLOW_VERSION="\${TF_VERSION:-r2.20}"
+BUILD_DIR="/workspace/build"
+PATCHES_DIR="/workspace/patches"
+JOBS=\${BUILD_JOBS:-\$(nproc)}
+
+log_info "Starting optimized TensorFlow sm_120 build..."
+log_info "TensorFlow version: \$TENSORFLOW_VERSION"
+log_info "Build jobs: \$JOBS"
+log_info "Target compute capability: 12.0 (sm_120)"
+
+# Verify environment
+log_info "Verifying build environment..."
+nvcc --version | grep "release"
+clang --version | head -n1
+bazel version | grep "Build label"
+python3 --version
+
+# Clone TensorFlow if not exists
+if [[ ! -d "tensorflow" ]]; then
+    log_info "Cloning TensorFlow repository..."
+    git clone --depth 1 --branch "\$TENSORFLOW_VERSION" \
+        https://github.com/tensorflow/tensorflow.git
+else
+    log_info "Using existing TensorFlow repository..."
+    cd tensorflow
+    git fetch origin "\$TENSORFLOW_VERSION" || true
+    git checkout "\$TENSORFLOW_VERSION" || true
+    cd ..
+fi
+
+cd tensorflow
+
+# Apply all patches
+log_info "Applying patches for sm_120 compatibility..."
+if [[ -d "\$PATCHES_DIR" ]]; then
+    for patch in "\$PATCHES_DIR"/*.patch; do
+        if [[ -f "\$patch" ]]; then
+            patch_name=\$(basename "\$patch")
+            log_info "Applying \$patch_name..."
+            if git apply --check "\$patch" 2>/dev/null; then
+                git apply "\$patch"
+                log_success "Applied \$patch_name"
+            else
+                log_warning "\$patch_name already applied or not applicable"
+            fi
+        fi
+    done
+fi
+
+# Configure TensorFlow build
+log_info "Configuring TensorFlow for sm_120 build..."
+export PYTHON_BIN_PATH=\$(which python3)
+export PYTHON_LIB_PATH=\$(python3 -c "import site; print(site.getsitepackages()[0])")
+
+# Run configure script with optimal settings
+python3 configure.py
+
+# Build TensorFlow with optimizations
+log_info "Building TensorFlow C++ library (this will take 2-4 hours)..."
+bazel build \
+    --config=opt \
+    --config=cuda \
+    --config=v2 \
+    --define=use_fast_cpp_protos=true \
+    --define=allow_oversize_protos=true \
+    --copt=-march=native \
+    --copt=-O3 \
+    --copt=-DNDEBUG \
+    --copt=-Wno-error=c23-extensions \
+    --copt=-Wno-error=unused-command-line-argument \
+    --copt=-Wno-sign-compare \
+    --host_copt=-march=native \
+    --host_copt=-O3 \
+    --verbose_failures \
+    --jobs=\$JOBS \
+    --ram_utilization_factor=80 \
+    --local_ram_resources=HOST_RAM*0.8 \
+    --local_cpu_resources=HOST_CPUS \
+    //tensorflow:libtensorflow.so \
+    //tensorflow:libtensorflow_cc.so
+
+log_success "TensorFlow C++ library built successfully"
+
+# Build Python wheel
+log_info "Building Python wheel..."
+mkdir -p "\$BUILD_DIR"
+
+# Build pip package with optimizations
+bazel build \
+    --config=opt \
+    --config=cuda \
+    --config=v2 \
+    --define=use_fast_cpp_protos=true \
+    --copt=-march=native \
+    --copt=-O3 \
+    --copt=-DNDEBUG \
+    --copt=-Wno-error=c23-extensions \
+    --verbose_failures \
+    --jobs=\$JOBS \
+    //tensorflow/tools/pip_package:build_pip_package
+
+# Create the wheel
+./bazel-bin/tensorflow/tools/pip_package/build_pip_package "\$BUILD_DIR" \
+    --project_name tensorflow_sm120
+
+# Rename wheel to indicate sm_120 support
+cd "\$BUILD_DIR"
+original_wheel=\$(ls tensorflow*.whl | head -n1)
+if [[ -n "\$original_wheel" ]]; then
+    # Extract wheel components
+    wheel_base=\$(echo "\$original_wheel" | sed 's/\.whl\$//')
+    python_tag=\$(python3 -c "import sys; print(f'cp{sys.version_info.major}{sys.version_info.minor}')")
+    abi_tag=\$python_tag
+    platform_tag=\$(python3 -c "import sysconfig; print(sysconfig.get_platform().replace('-', '_'))")
+    
+    # Create new wheel name with sm_120 identifier
+    new_wheel="tensorflow_sm120-\$(echo \"\$wheel_base\" | cut -d'-' -f2)-\${python_tag}-\${abi_tag}-\${platform_tag}.whl"
+    
+    mv "\$original_wheel" "\$new_wheel"
+    log_success "Created wheel: \$new_wheel"
+else
+    log_error "No wheel file found"
+    exit 1
+fi
+
+# Generate build metadata
+cat > "\$BUILD_DIR/build-info.json" << 'BUILDINFO'
+{
+    "build_date": "\$(date -Iseconds)",
+    "tensorflow_version": "\$TENSORFLOW_VERSION",
+    "cuda_version": "\$TF_CUDA_VERSION",
+    "cudnn_version": "\$TF_CUDNN_VERSION",
+    "compute_capability": "12.0",
+    "target_architecture": "sm_120",
+    "compiler": "\$(clang --version | head -n1)",
+    "bazel_version": "\$(bazel version | grep 'Build label' | cut -d' ' -f3)",
+    "python_version": "\$(python3 --version | cut -d' ' -f2)",
+    "build_host": "\$(hostname)",
+    "optimizations": [
+        "march=native",
+        "O3",
+        "fast_cpp_protos",
+        "allow_oversize_protos"
+    ],
+    "wheel_file": "\$new_wheel"
+}
+BUILDINFO
+
+log_success "TensorFlow sm_120 build completed successfully!"
+log_info "Build artifacts are in: \$BUILD_DIR"
+log_info "Wheel file: \$new_wheel"
+
+# Cleanup build cache to save space
+log_info "Cleaning up build cache..."
+bazel clean --expunge
+
+cd /workspace
+EOF
+
+RUN chmod +x /workspace/build-tensorflow-optimized.sh
+
+# Create validation script
+RUN cat > /workspace/validate-build.sh << 'EOF'
+#!/bin/bash
+set -e
+
+BUILD_DIR="/workspace/build"
+WHEEL_FILE=$(ls "$BUILD_DIR"/*.whl 2>/dev/null | head -n1)
+
+if [[ -z "$WHEEL_FILE" ]]; then
+    echo "ERROR: No wheel file found in $BUILD_DIR"
+    exit 1
+fi
+
+echo "Installing wheel for validation..."
+pip install "$WHEEL_FILE" --force-reinstall
+
+echo "Running validation tests..."
+python3 -c "
+import tensorflow as tf
+print(f'TensorFlow version: {tf.__version__}')
+print(f'CUDA built: {tf.test.is_built_with_cuda()}')
+print(f'GPU devices: {len(tf.config.list_physical_devices(\"GPU\"))}')
+
+# Test basic operations
+if tf.config.list_physical_devices('GPU'):
+    with tf.device('/GPU:0'):
+        a = tf.constant([[1.0, 2.0], [3.0, 4.0]])
+        b = tf.constant([[2.0, 0.0], [0.0, 2.0]])
+        c = tf.matmul(a, b)
+        print(f'GPU operation result: {c.numpy().tolist()}')
+        print('SUCCESS: Basic GPU operations working')
+else:
+    print('WARNING: No GPU devices available for testing')
+"
+EOF
+
+RUN chmod +x /workspace/validate-build.sh
+
+# Set up build environment optimization
+RUN echo 'export MAKEFLAGS="-j$(nproc)"' >> /root/.bashrc && \
+    echo 'export BAZEL_JOBS=$(nproc)' >> /root/.bashrc && \
+    echo 'export TMP=/tmp' >> /root/.bashrc
+
+# Create entrypoint script
+RUN cat > /workspace/entrypoint.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "TensorFlow sm_120 Build Container"
+echo "================================="
+echo "CUDA Version: $(nvcc --version | grep 'release' | sed 's/.*release //' | sed 's/,.*//')"
+echo "Clang Version: $(clang --version | head -n1 | grep -o 'clang version [0-9.]*' | cut -d' ' -f3)"
+echo "Python Version: $(python3 --version | cut -d' ' -f2)"
+echo "Available GPUs: $(nvidia-smi -L | wc -l)"
+echo ""
+
+if [[ $# -eq 0 ]]; then
+    echo "Starting optimized build process..."
+    exec /workspace/build-tensorflow-optimized.sh
+else
+    exec "$@"
+fi
+EOF
+
+RUN chmod +x /workspace/entrypoint.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD nvidia-smi > /dev/null || exit 1
+
+# Default command
+ENTRYPOINT ["/workspace/entrypoint.sh"]
+CMD []

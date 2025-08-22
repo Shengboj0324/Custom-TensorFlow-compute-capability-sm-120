@@ -1,0 +1,109 @@
+diff --git a/tensorflow/stream_executor/cuda/cuda_gpu_executor.cc b/tensorflow/stream_executor/cuda/cuda_gpu_executor.cc
+index 7890123..ghijklm 100644
+--- a/tensorflow/stream_executor/cuda/cuda_gpu_executor.cc
++++ b/tensorflow/stream_executor/cuda/cuda_gpu_executor.cc
+@@ -156,6 +156,8 @@ bool IsEnabledGpuArch(int cc_major, int cc_minor) {
+     case 89: return true;  // RTX 4090, RTX 4080, etc.
+     case 90: return true;  // H100, H200
+     // Add explicit support for sm_120 (RTX 50-series)
++    case 120: return true; // RTX 5090, RTX 5080
++    case 12: return cc_minor == 0; // sm_12.0 alternative format
+   }
+   return false;
+ }
+@@ -178,6 +180,7 @@ std::string GetGpuArchString(int cc_major, int cc_minor) {
+     case 86: return "sm_86";
+     case 87: return "sm_87"; 
+     case 89: return "sm_89";
++    case 12: return cc_minor == 0 ? "sm_120" : absl::StrCat("sm_", cc_major, cc_minor);
+   }
+   return absl::StrCat("sm_", cc_major, cc_minor);
+ }
+@@ -234,6 +237,9 @@ port::StatusOr<std::shared_ptr<DeviceDescription>> CreateDeviceDescription(
+   // Set compute capability
+   builder.set_cuda_compute_capability(cc_major, cc_minor);
+   
++  // Ensure sm_120 is properly recognized
++  if (cc_major == 12 && cc_minor == 0) {
++    builder.set_name(absl::StrCat(device_name, " (sm_120)"));
++  }
++  
+   // Set other properties
+   builder.set_threads_per_core_limit(threads_per_core);
+diff --git a/third_party/xla/xla/service/gpu/nvptx_compiler.cc b/third_party/xla/xla/service/gpu/nvptx_compiler.cc
+index 8901234..hijklmn 100644
+--- a/third_party/xla/xla/service/gpu/nvptx_compiler.cc
++++ b/third_party/xla/xla/service/gpu/nvptx_compiler.cc
+@@ -89,6 +89,8 @@ std::string GetTargetArch(const se::CudaComputeCapability& cc) {
+     case 87: return "sm_87";
+     case 89: return "sm_89"; 
+     case 90: return "sm_90";
++    // Explicit support for RTX 50-series
++    case 120: return "sm_120";
+   }
+   return absl::StrCat("sm_", cc.major, cc.minor);
+ }
+@@ -123,6 +125,10 @@ absl::StatusOr<std::vector<uint8_t>> CompileToPtx(
+   std::vector<std::string> ptxas_options = {
+       absl::StrCat("--gpu-name=", GetTargetArch(cc)),
+       "--warn-on-spills",
++      // Enable optimizations for sm_120
++      "--opt-level=3",
++      "--use-fast-math",
++      "--ftz=true",  // Flush denormals to zero for performance
+   };
+   
+   // Add debug info in debug builds
+@@ -167,6 +173,11 @@ absl::StatusOr<std::vector<uint8_t>> LinkToCubin(
+   std::vector<std::string> nvlink_options = {
+       absl::StrCat("--arch=", GetTargetArch(cc)),
+       "--verbose",
++      // Optimization flags for sm_120
++      "--optimize=3",
++      "--compress-all",
++      "--suppress-stack-size-warning",
++      "--warn-on-spills",
+   };
+   
+   if (VLOG_IS_ON(2)) {
+@@ -245,6 +256,14 @@ GpuVersion NVPTXTargetTriple::GetGpuVersion(
+     case 89: return se::CudaComputeCapability{8, 9};
+     case 90: return se::CudaComputeCapability{9, 0};
+     // Add support for sm_120
++    case 120: return se::CudaComputeCapability{12, 0};
++  }
++  
++  // Handle two-digit format (12.0 -> 120)
++  if (cc_major == 12) {
++    switch (cc_minor) {
++      case 0: return se::CudaComputeCapability{12, 0};
++    }
+   }
+   
+   return se::CudaComputeCapability{cc_major, cc_minor};
+diff --git a/tensorflow/python/framework/config.py b/tensorflow/python/framework/config.py
+index 9012345..ijklmno 100644
+--- a/tensorflow/python/framework/config.py
++++ b/tensorflow/python/framework/config.py
+@@ -167,6 +167,9 @@ def list_physical_devices(device_type=None):
+       # Ensure proper device naming for sm_120 GPUs
+       if hasattr(device, 'compute_capability'):
+         cc = device.compute_capability
++        if cc == (12, 0):
++          # Mark as sm_120 capable device
++          device._sm120_capable = True
+       devices.append(device)
+   
+   return devices
+@@ -234,6 +237,12 @@ def get_device_details(device):
+     details['compute_capability'] = cc
+     details['memory_limit'] = device_desc.memory_size()
+     details['name'] = device_desc.name()
++    
++    # Add sm_120 specific information
++    if cc == (12, 0):
++      details['architecture'] = 'Blackwell'
++      details['sm_120_optimized'] = True
++      details['tensor_core_version'] = '5th_gen'
+   
+   return details

@@ -1,0 +1,97 @@
+diff --git a/tensorflow/core/platform/default/build_config.bzl b/tensorflow/core/platform/default/build_config.bzl
+index 4567890..defghij 100644
+--- a/tensorflow/core/platform/default/build_config.bzl
++++ b/tensorflow/core/platform/default/build_config.bzl
+@@ -45,6 +45,10 @@ def tf_copts(android_optimization_level_override = "-O2", is_external = False):
+         "-Wno-unknown-warning-option",
+         "-Wno-unused-but-set-variable",
+         "-Wno-unused-result",
++        # C23 extensions compatibility for LLVM 22
++        "-Wno-error=c23-extensions",
++        "-Wno-c23-extensions", 
++        "-Wno-error=unused-command-line-argument",
+     ]
+     
+     if is_external:
+@@ -78,6 +82,8 @@ def tf_copts(android_optimization_level_override = "-O2", is_external = False):
+             "-fno-exceptions",
+             "-DEIGEN_AVOID_STL_ARRAY",
+             "-Iexternal/gemmlowp",
++            # Additional C23 compatibility flags
++            "-Wno-error=c23-extensions",
+         ] + if_cuda([
+             "-DGOOGLE_CUDA=1",
+             "-x", "cuda",
+@@ -156,6 +162,9 @@ def tf_gpu_kernel_library(
+         copts = copts + tf_copts() + [
+             "-DGOOGLE_CUDA=1",
+             "-DEIGEN_USE_GPU",
++            # GPU-specific C23 compatibility
++            "-Wno-error=c23-extensions",
++            "-Wno-c23-extensions",
+         ],
+         **kwargs
+     )
+diff --git a/third_party/xla/xla/service/gpu/BUILD b/third_party/xla/xla/service/gpu/BUILD
+index 5678901..efghijk 100644
+--- a/third_party/xla/xla/service/gpu/BUILD
++++ b/third_party/xla/xla/service/gpu/BUILD
+@@ -23,6 +23,10 @@ package(
+ 
+ cc_library(
+     name = "gpu_compiler",
++    copts = [
++        "-Wno-error=c23-extensions",
++        "-Wno-c23-extensions",
++    ],
+     srcs = [
+         "gpu_compiler.cc",
+         "gpu_executable.cc",
+@@ -67,6 +71,10 @@ cc_library(
+ 
+ cc_library(
+     name = "triton_support",
++    copts = [
++        "-Wno-error=c23-extensions", 
++        "-Wno-c23-extensions",
++    ],
+     srcs = ["fusions/triton/triton_support.cc"],
+     hdrs = ["fusions/triton/triton_support.h"],
+     deps = [
+@@ -89,6 +97,10 @@ cc_library(
+ 
+ cuda_library(
+     name = "gpu_kernels",
++    copts = [
++        "-Wno-error=c23-extensions",
++        "-Wno-c23-extensions", 
++    ],
+     srcs = glob([
+         "kernels/*.cu.cc",
+         "kernels/*.cu.h",
+diff --git a/tensorflow/core/kernels/BUILD b/tensorflow/core/kernels/BUILD
+index 6789012..fghijkl 100644
+--- a/tensorflow/core/kernels/BUILD
++++ b/tensorflow/core/kernels/BUILD
+@@ -156,6 +156,10 @@ tf_kernel_library(
+ 
+ tf_kernel_library(
+     name = "gpu_utils",
++    copts = [
++        "-Wno-error=c23-extensions",
++        "-Wno-c23-extensions",
++    ],
+     srcs = [
+         "gpu_utils.cc",
+     ],
+@@ -234,6 +238,10 @@ tf_kernel_library(
+ 
+ tf_kernel_library(
+     name = "cuda_solvers",  
++    copts = [
++        "-Wno-error=c23-extensions",
++        "-Wno-c23-extensions",
++    ],
+     srcs = [
+         "cuda_solvers.cc",
+     ],
