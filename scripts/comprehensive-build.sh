@@ -173,14 +173,14 @@ validate_cuda() {
     # Check CUDA toolkit
     if command -v nvcc &> /dev/null; then
         local cuda_version=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-        if (( $(echo "$cuda_version >= 12.8" | bc -l) )); then
+        if (( $(echo "$cuda_version >= 12.4" | bc -l) )); then
             log_success "CUDA Toolkit: $cuda_version"
         else
-            log_error "CUDA $cuda_version found, but 12.8+ required"
+            log_error "CUDA $cuda_version found, but 12.4+ required"
             exit 1
         fi
     else
-        log_error "CUDA toolkit not found. Please install CUDA 12.8+"
+        log_error "CUDA toolkit not found. Please install CUDA 12.4+"
         exit 1
     fi
     

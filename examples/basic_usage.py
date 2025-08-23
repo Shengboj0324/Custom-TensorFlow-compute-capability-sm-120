@@ -163,7 +163,10 @@ def demonstrate_advanced_conv2d():
         # Standard TensorFlow conv2d
         start_time = time.time()
         result_standard = tf.nn.conv2d(
-            input_tensor, filter_tensor, strides=config["strides"], padding=config["padding"]
+            input_tensor,
+            filter_tensor,
+            strides=config["strides"],
+            padding=config["padding"],
         )
         standard_time = time.time() - start_time
 
@@ -199,7 +202,13 @@ def demonstrate_flash_attention():
 
     # Test different attention configurations
     test_configs = [
-        {"name": "Small Attention", "batch_size": 2, "num_heads": 8, "seq_len": 64, "head_dim": 64},
+        {
+            "name": "Small Attention",
+            "batch_size": 2,
+            "num_heads": 8,
+            "seq_len": 64,
+            "head_dim": 64,
+        },
         {
             "name": "Large Attention",
             "batch_size": 1,
@@ -220,9 +229,13 @@ def demonstrate_flash_attention():
         dtype = tf.float32
 
         # Create test data
-        queries = tf.random.normal([batch_size, num_heads, seq_len, head_dim], dtype=dtype)
+        queries = tf.random.normal(
+            [batch_size, num_heads, seq_len, head_dim], dtype=dtype
+        )
         keys = tf.random.normal([batch_size, num_heads, seq_len, head_dim], dtype=dtype)
-        values = tf.random.normal([batch_size, num_heads, seq_len, head_dim], dtype=dtype)
+        values = tf.random.normal(
+            [batch_size, num_heads, seq_len, head_dim], dtype=dtype
+        )
 
         scale = 1.0 / np.sqrt(float(head_dim))
 
@@ -241,7 +254,9 @@ def demonstrate_flash_attention():
 
         # SM120 Flash Attention
         start_time = time.time()
-        result_sm120, weights_sm120 = sm120_ops.flash_attention(queries, keys, values, scale=scale)
+        result_sm120, weights_sm120 = sm120_ops.flash_attention(
+            queries, keys, values, scale=scale
+        )
         sm120_time = time.time() - start_time
 
         # Verify correctness
@@ -336,7 +351,11 @@ def run_performance_benchmark():
         gflops = ops / benchmark_results["mean_time"] / 1e9
 
         results.append(
-            {"size": size, "time_ms": benchmark_results["mean_time"] * 1000, "gflops": gflops}
+            {
+                "size": size,
+                "time_ms": benchmark_results["mean_time"] * 1000,
+                "gflops": gflops,
+            }
         )
 
         print(f"  Time: {benchmark_results['mean_time']*1000:.2f}ms")
@@ -347,7 +366,9 @@ def run_performance_benchmark():
     print("Size      Time (ms)    GFLOPS")
     print("-" * 30)
     for result in results:
-        print(f"{result['size']:4d}      {result['time_ms']:8.2f}    {result['gflops']:6.1f}")
+        print(
+            f"{result['size']:4d}      {result['time_ms']:8.2f}    {result['gflops']:6.1f}"
+        )
 
 
 def main():
@@ -389,7 +410,9 @@ def main():
     if sm120_available:
         print("🚀 Your system is ready for high-performance SM120 operations!")
     else:
-        print("ℹ️  Install SM120 optimizations for maximum performance on RTX 50-series GPUs.")
+        print(
+            "ℹ️  Install SM120 optimizations for maximum performance on RTX 50-series GPUs."
+        )
 
     print("\nNext steps:")
     print("1. Integrate SM120 operations into your models")

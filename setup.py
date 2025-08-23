@@ -169,10 +169,10 @@ def check_cuda():
             if "release" in line:
                 version_str = line.split("release ")[1].split(",")[0]
                 # Use safe version parsing to avoid packaging.version.Version issues
-                if compare_versions(version_str, "12.8") >= 0:
+                if compare_versions(version_str, "12.4") >= 0:
                     return True, version_str
                 else:
-                    print(f"Warning: CUDA {version_str} found, but 12.8+ required")
+                    print(f"Warning: CUDA {version_str} found, but 12.4+ required")
                     return False, version_str
 
         return False, "unknown"

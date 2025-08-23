@@ -69,7 +69,9 @@ class SM120PerformanceProfiler:
 
     def __init__(self):
         self._enabled = False
-        self._metrics_history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
+        self._metrics_history: Dict[str, deque] = defaultdict(
+            lambda: deque(maxlen=1000)
+        )
         self._optimization_hints: Dict[str, OptimizationHints] = {}
         self._kernel_configs: Dict[str, Dict] = {}
         self._gpu_info: Optional[Dict] = None
@@ -102,7 +104,9 @@ class SM120PerformanceProfiler:
             self._gpu_info = {
                 "name": gpu.name,
                 "compute_capability": device_details.get("compute_capability", (0, 0)),
-                "memory_limit": tf.config.experimental.get_memory_info(gpu.name).get("total", 0),
+                "memory_limit": tf.config.experimental.get_memory_info(gpu.name).get(
+                    "total", 0
+                ),
                 "peak_memory_bandwidth": self._estimate_peak_bandwidth(),
                 "tensor_core_support": self._check_tensor_core_support(),
                 "warp_size": 32,  # Standard for all modern GPUs
@@ -177,21 +181,39 @@ class SM120PerformanceProfiler:
                 memory_bandwidth_gb_s=min(
                     memory_bandwidth, self._gpu_info.get("peak_memory_bandwidth", 1000)
                 ),
-                arithmetic_intensity=self._estimate_arithmetic_intensity(kernel_name, input_shape),
-                occupancy_percent=(
-                    additional_metrics.get("occupancy", 0.0) if additional_metrics else 0.0
+                arithmetic_intensity=self._estimate_arithmetic_intensity(
+                    kernel_name, input_shape
                 ),
-                blocks_launched=additional_metrics.get("blocks", 0) if additional_metrics else 0,
+                occupancy_percent=(
+                    additional_metrics.get("occupancy", 0.0)
+                    if additional_metrics
+                    else 0.0
+                ),
+                blocks_launched=(
+                    additional_metrics.get("blocks", 0) if additional_metrics else 0
+                ),
                 threads_per_block=(
-                    additional_metrics.get("threads_per_block", 256) if additional_metrics else 256
+                    additional_metrics.get("threads_per_block", 256)
+                    if additional_metrics
+                    else 256
                 ),
                 shared_memory_bytes=(
-                    additional_metrics.get("shared_memory", 0) if additional_metrics else 0
+                    additional_metrics.get("shared_memory", 0)
+                    if additional_metrics
+                    else 0
                 ),
-                register_count=additional_metrics.get("registers", 0) if additional_metrics else 0,
-                tile_size=additional_metrics.get("tile_size", 16) if additional_metrics else 16,
+                register_count=(
+                    additional_metrics.get("registers", 0) if additional_metrics else 0
+                ),
+                tile_size=(
+                    additional_metrics.get("tile_size", 16)
+                    if additional_metrics
+                    else 16
+                ),
                 warp_efficiency=(
-                    additional_metrics.get("warp_efficiency", 0.0) if additional_metrics else 0.0
+                    additional_metrics.get("warp_efficiency", 0.0)
+                    if additional_metrics
+                    else 0.0
                 ),
                 memory_efficiency=memory_bandwidth
                 / self._gpu_info.get("peak_memory_bandwidth", 1000)
@@ -203,7 +225,9 @@ class SM120PerformanceProfiler:
                 ),
                 achieved_bandwidth=memory_bandwidth,
                 theoretical_bandwidth=self._gpu_info.get("peak_memory_bandwidth", 1000),
-                flops_per_second=self._estimate_flops(kernel_name, input_shape, execution_time),
+                flops_per_second=self._estimate_flops(
+                    kernel_name, input_shape, execution_time
+                ),
                 input_shape=input_shape,
                 data_type=data_type,
                 timestamp=time.time(),
@@ -338,7 +362,9 @@ class SM120PerformanceProfiler:
         variance = np.var([m.execution_time_ms for m in recent_metrics])
         hints.confidence_score = max(0.1, min(1.0, 1.0 - variance / avg_time))
 
-    def get_metrics(self, kernel_name: str, num_samples: int = 100) -> List[KernelMetrics]:
+    def get_metrics(
+        self, kernel_name: str, num_samples: int = 100
+    ) -> List[KernelMetrics]:
         """Get recent performance metrics for a kernel."""
         with self._lock:
             if kernel_name not in self._metrics_history:
@@ -357,7 +383,9 @@ class SM120PerformanceProfiler:
             "kernel_name": kernel_name,
             "sample_count": len(metrics),
             "avg_execution_time_ms": np.mean([m.execution_time_ms for m in metrics]),
-            "avg_memory_bandwidth_gb_s": np.mean([m.memory_bandwidth_gb_s for m in metrics]),
+            "avg_memory_bandwidth_gb_s": np.mean(
+                [m.memory_bandwidth_gb_s for m in metrics]
+            ),
             "avg_occupancy_percent": np.mean([m.occupancy_percent for m in metrics]),
             "avg_memory_efficiency": np.mean([m.memory_efficiency for m in metrics]),
             "avg_flops_per_second": np.mean([m.flops_per_second for m in metrics]),
@@ -400,7 +428,9 @@ class SM120PerformanceProfiler:
         if self._gpu_info:
             print(f"\n🖥️  GPU Information:")
             print(f"   Device: {self._gpu_info.get('name', 'Unknown')}")
-            print(f"   Compute Capability: {self._gpu_info.get('compute_capability', 'Unknown')}")
+            print(
+                f"   Compute Capability: {self._gpu_info.get('compute_capability', 'Unknown')}"
+            )
             print(
                 f"   Peak Memory Bandwidth: {self._gpu_info.get('peak_memory_bandwidth', 0):.1f} GB/s"
             )
@@ -414,7 +444,9 @@ class SM120PerformanceProfiler:
             if history:
                 recent_metrics = list(history)[-50:]  # Last 50 executions
                 avg_time = np.mean([m.execution_time_ms for m in recent_metrics])
-                avg_bandwidth = np.mean([m.memory_bandwidth_gb_s for m in recent_metrics])
+                avg_bandwidth = np.mean(
+                    [m.memory_bandwidth_gb_s for m in recent_metrics]
+                )
                 avg_efficiency = np.mean([m.memory_efficiency for m in recent_metrics])
                 total_calls = len(history)
 
@@ -451,7 +483,9 @@ class SM120PerformanceProfiler:
         # Find bottlenecks
         slow_kernels = [s for s in kernel_stats if s["avg_time"] > 1.0]
         if slow_kernels:
-            print(f"   ⚠️  Slow kernels (>1ms): {', '.join([k['name'] for k in slow_kernels[:3]])}")
+            print(
+                f"   ⚠️  Slow kernels (>1ms): {', '.join([k['name'] for k in slow_kernels[:3]])}"
+            )
 
         # Find memory-bound operations
         memory_bound = [s for s in kernel_stats if s["avg_efficiency"] < 50]
@@ -491,7 +525,9 @@ class SM120PerformanceProfiler:
         with self._lock:
             data = {
                 "gpu_info": self._gpu_info,
-                "optimization_hints": {k: asdict(v) for k, v in self._optimization_hints.items()},
+                "optimization_hints": {
+                    k: asdict(v) for k, v in self._optimization_hints.items()
+                },
                 "metrics": {},
             }
 
@@ -578,7 +614,10 @@ class SM120PerformanceContext:
     """Context manager for measuring SM120 operation performance."""
 
     def __init__(
-        self, operation_name: str, input_shape: Tuple[int, ...] = (), data_type: str = "float32"
+        self,
+        operation_name: str,
+        input_shape: Tuple[int, ...] = (),
+        data_type: str = "float32",
     ):
         self.operation_name = operation_name
         self.input_shape = input_shape
@@ -591,7 +630,9 @@ class SM120PerformanceContext:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.start_time is not None:
-            execution_time = (time.perf_counter() - self.start_time) * 1000  # Convert to ms
+            execution_time = (
+                time.perf_counter() - self.start_time
+            ) * 1000  # Convert to ms
             _global_profiler.record_kernel_metrics(
                 self.operation_name, execution_time, self.input_shape, self.data_type
             )

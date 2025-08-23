@@ -155,7 +155,9 @@ class SM120TypeManager:
             gpus = tf.config.list_physical_devices("GPU")
             if gpus:
                 device_details = tf.config.experimental.get_device_details(gpus[0])
-                self._gpu_compute_capability = device_details.get("compute_capability", (7, 0))
+                self._gpu_compute_capability = device_details.get(
+                    "compute_capability", (7, 0)
+                )
             else:
                 self._gpu_compute_capability = (7, 0)  # Default assumption
         except Exception:
@@ -216,7 +218,9 @@ class SM120TypeManager:
         """Get optimal data type for an operation category."""
         return self._optimal_types.get(operation_category, SM120DataType.FLOAT32)
 
-    def get_type_properties(self, dtype: Union[SM120DataType, str, tf.DType]) -> Dict[str, Any]:
+    def get_type_properties(
+        self, dtype: Union[SM120DataType, str, tf.DType]
+    ) -> Dict[str, Any]:
         """Get properties of a data type."""
         sm120_dtype = self._parse_dtype(dtype)
         return SM120TypeProperties.TYPE_INFO.get(sm120_dtype, {}).copy()
@@ -261,7 +265,10 @@ class SM120TypeManager:
         return SM120DataType.FLOAT32
 
     def auto_cast_tensor(
-        self, tensor: tf.Tensor, target_operation: str = "general", preserve_precision: bool = False
+        self,
+        tensor: tf.Tensor,
+        target_operation: str = "general",
+        preserve_precision: bool = False,
     ) -> tf.Tensor:
         """Automatically cast tensor to optimal data type."""
         if not SM120_AVAILABLE:
@@ -299,7 +306,9 @@ class SM120TypeManager:
             if SM120_AVAILABLE and hasattr(sm120_ops, "cast_to_custom_type"):
                 return sm120_ops.cast_to_custom_type(tensor, target_dtype.value)
             else:
-                warnings.warn(f"Cannot cast to {target_dtype.value}, using original type")
+                warnings.warn(
+                    f"Cannot cast to {target_dtype.value}, using original type"
+                )
                 return tensor
 
         # Use TensorFlow casting
@@ -323,14 +332,18 @@ class SM120TypeManager:
         if policy == "mixed_float16" and self.is_type_supported(SM120DataType.FLOAT16):
             tf.keras.mixed_precision.set_global_policy("mixed_float16")
             self._optimal_types["default"] = SM120DataType.FLOAT16
-        elif policy == "mixed_bfloat16" and self.is_type_supported(SM120DataType.BFLOAT16):
+        elif policy == "mixed_bfloat16" and self.is_type_supported(
+            SM120DataType.BFLOAT16
+        ):
             tf.keras.mixed_precision.set_global_policy("mixed_bfloat16")
             self._optimal_types["default"] = SM120DataType.BFLOAT16
         elif policy == "float32":
             tf.keras.mixed_precision.set_global_policy("float32")
             self._optimal_types["default"] = SM120DataType.FLOAT32
         else:
-            warnings.warn(f"Mixed precision policy '{policy}' not supported, using float32")
+            warnings.warn(
+                f"Mixed precision policy '{policy}' not supported, using float32"
+            )
             tf.keras.mixed_precision.set_global_policy("float32")
 
     def disable_mixed_precision(self):
@@ -391,7 +404,9 @@ class SM120TypeManager:
             # Estimate memory usage
             if hasattr(layer, "count_params"):
                 params = layer.count_params()
-                layer_memory = params * self.get_type_properties(recommended_dtype)["size_bytes"]
+                layer_memory = (
+                    params * self.get_type_properties(recommended_dtype)["size_bytes"]
+                )
                 total_memory_usage += layer_memory
 
         # Check memory constraint
@@ -415,7 +430,10 @@ class SM120TypeManager:
         return recommendations
 
     def create_optimized_tensor(
-        self, shape: Tuple[int, ...], operation_type: str = "general", initializer: str = "zeros"
+        self,
+        shape: Tuple[int, ...],
+        operation_type: str = "general",
+        initializer: str = "zeros",
     ) -> tf.Tensor:
         """Create tensor with optimal data type for operation."""
         optimal_dtype = self.get_optimal_type(operation_type)
@@ -440,9 +458,13 @@ class SM120TypeManager:
 
         print(f"\n🖥️  GPU Information:")
         print(f"   Compute Capability: {self._gpu_compute_capability}")
-        print(f"   Mixed Precision: {'Enabled' if self._mixed_precision_enabled else 'Disabled'}")
+        print(
+            f"   Mixed Precision: {'Enabled' if self._mixed_precision_enabled else 'Disabled'}"
+        )
 
-        print(f"\n📊 Supported Data Types ({len(self._supported_types)}/{len(SM120DataType)}):")
+        print(
+            f"\n📊 Supported Data Types ({len(self._supported_types)}/{len(SM120DataType)}):"
+        )
         print(
             f"{'Type':<12} {'Size':<6} {'Tensor Core':<12} {'Memory Eff':<12} {'Compute Eff':<12}"
         )
@@ -504,10 +526,14 @@ def disable_mixed_precision():
 
 
 def recommend_model_dtypes(
-    model: tf.keras.Model, target_memory_gb: Optional[float] = None, prioritize_speed: bool = True
+    model: tf.keras.Model,
+    target_memory_gb: Optional[float] = None,
+    prioritize_speed: bool = True,
 ) -> Dict[str, str]:
     """Recommend data types for model layers."""
-    return _type_manager.recommend_dtype_for_model(model, target_memory_gb, prioritize_speed)
+    return _type_manager.recommend_dtype_for_model(
+        model, target_memory_gb, prioritize_speed
+    )
 
 
 def create_optimized_tensor(
@@ -535,7 +561,9 @@ def optimize_for_training(tensors: List[tf.Tensor]) -> List[tf.Tensor]:
 
 def optimize_for_inference(tensors: List[tf.Tensor]) -> List[tf.Tensor]:
     """Optimize tensor dtypes for inference (prioritize speed/memory)."""
-    return [auto_cast(tensor, "attention", preserve_precision=False) for tensor in tensors]
+    return [
+        auto_cast(tensor, "attention", preserve_precision=False) for tensor in tensors
+    ]
 
 
 def optimize_for_memory(tensors: List[tf.Tensor]) -> List[tf.Tensor]:

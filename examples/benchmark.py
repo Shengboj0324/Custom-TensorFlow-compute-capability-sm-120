@@ -28,7 +28,9 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 class BenchmarkSuite:
     """Comprehensive benchmark suite for TensorFlow GPU performance."""
 
-    def __init__(self, device: str = "/GPU:0", warmup_runs: int = 3, benchmark_runs: int = 10):
+    def __init__(
+        self, device: str = "/GPU:0", warmup_runs: int = 3, benchmark_runs: int = 10
+    ):
         self.device = device
         self.warmup_runs = warmup_runs
         self.benchmark_runs = benchmark_runs
@@ -137,7 +139,10 @@ class BenchmarkSuite:
 
                 # Create convolution layer
                 conv_layer = tf.keras.layers.Conv2D(
-                    filters=filters, kernel_size=kernel_size, padding="same", activation="relu"
+                    filters=filters,
+                    kernel_size=kernel_size,
+                    padding="same",
+                    activation="relu",
                 )
 
                 # Benchmark
@@ -145,7 +150,9 @@ class BenchmarkSuite:
 
                 # Calculate metrics
                 output_elements = np.prod(output.shape)
-                throughput = output_elements / avg_time / 1e6  # Million elements per second
+                throughput = (
+                    output_elements / avg_time / 1e6
+                )  # Million elements per second
 
                 config_name = f"conv2d_b{batch_size}_h{input_shape[0]}_w{input_shape[1]}_c{input_shape[2]}_f{filters}"
                 results[config_name] = {
@@ -157,7 +164,9 @@ class BenchmarkSuite:
                     "throughput_meps": throughput,  # Million elements per second
                 }
 
-                print(f"    Time: {avg_time*1000:.2f}ms, Throughput: {throughput:.1f} MEPS")
+                print(
+                    f"    Time: {avg_time*1000:.2f}ms, Throughput: {throughput:.1f} MEPS"
+                )
 
         return results
 
@@ -184,12 +193,16 @@ class BenchmarkSuite:
                     # Create model for testing
                     model = tf.keras.Sequential(
                         [
-                            tf.keras.layers.Dense(size, activation="relu", input_shape=(size,)),
+                            tf.keras.layers.Dense(
+                                size, activation="relu", input_shape=(size,)
+                            ),
                             tf.keras.layers.Dense(size, activation="relu"),
                             tf.keras.layers.Dense(
                                 size // 4,
                                 activation="softmax",
-                                dtype="float32" if precision == "mixed_float16" else None,
+                                dtype=(
+                                    "float32" if precision == "mixed_float16" else None
+                                ),
                             ),
                         ]
                     )
@@ -217,7 +230,9 @@ class BenchmarkSuite:
 
         return results
 
-    def benchmark_reduction_operations(self, shapes: List[Tuple[int, ...]]) -> Dict[str, Any]:
+    def benchmark_reduction_operations(
+        self, shapes: List[Tuple[int, ...]]
+    ) -> Dict[str, Any]:
         """Benchmark various reduction operations."""
         print("🔄 Benchmarking reduction operations...")
 
@@ -247,7 +262,9 @@ class BenchmarkSuite:
                         op_fn = lambda x: tf.math.reduce_std(x)
 
                     avg_time, _ = self._time_operation(op_fn, x)
-                    throughput = elements / avg_time / 1e6  # Million elements per second
+                    throughput = (
+                        elements / avg_time / 1e6
+                    )  # Million elements per second
 
                     shape_results[op_name] = {
                         "time_seconds": avg_time,
@@ -314,23 +331,44 @@ class BenchmarkSuite:
 
         # Matrix multiplication benchmark
         matmul_sizes = [512, 1024, 2048, 4096, 8192]
-        self.results["matrix_multiplication"] = self.benchmark_matrix_multiplication(matmul_sizes)
+        self.results["matrix_multiplication"] = self.benchmark_matrix_multiplication(
+            matmul_sizes
+        )
 
         # Convolution benchmark
         conv_configs = [
-            {"batch_size": 32, "input_shape": [224, 224, 3], "filters": 64, "kernel_size": 3},
-            {"batch_size": 16, "input_shape": [512, 512, 3], "filters": 32, "kernel_size": 5},
-            {"batch_size": 8, "input_shape": [1024, 1024, 1], "filters": 16, "kernel_size": 7},
+            {
+                "batch_size": 32,
+                "input_shape": [224, 224, 3],
+                "filters": 64,
+                "kernel_size": 3,
+            },
+            {
+                "batch_size": 16,
+                "input_shape": [512, 512, 3],
+                "filters": 32,
+                "kernel_size": 5,
+            },
+            {
+                "batch_size": 8,
+                "input_shape": [1024, 1024, 1],
+                "filters": 16,
+                "kernel_size": 7,
+            },
         ]
         self.results["convolution"] = self.benchmark_convolution(conv_configs)
 
         # Mixed precision benchmark
         mixed_precision_sizes = [512, 1024, 2048]
-        self.results["mixed_precision"] = self.benchmark_mixed_precision(mixed_precision_sizes)
+        self.results["mixed_precision"] = self.benchmark_mixed_precision(
+            mixed_precision_sizes
+        )
 
         # Reduction operations benchmark
         reduction_shapes = [(10000, 10000), (1000000,), (100, 100, 100, 100)]
-        self.results["reduction_operations"] = self.benchmark_reduction_operations(reduction_shapes)
+        self.results["reduction_operations"] = self.benchmark_reduction_operations(
+            reduction_shapes
+        )
 
         # Memory bandwidth benchmark
         memory_sizes = [100, 500, 1000, 2000]
@@ -370,7 +408,9 @@ class BenchmarkSuite:
                 if isinstance(cc, tuple):
                     cc_str = f"{cc[0]}.{cc[1]}"
                     if cc == (12, 0):
-                        print(f"Compute Capability: {cc_str} ✅ (sm_120 - RTX 50-series)")
+                        print(
+                            f"Compute Capability: {cc_str} ✅ (sm_120 - RTX 50-series)"
+                        )
                     else:
                         print(f"Compute Capability: {cc_str}")
 
@@ -392,8 +432,14 @@ class BenchmarkSuite:
             print("Mixed Precision Performance (1024x1024 dense layer):")
             mixed_results = results["results"]["mixed_precision"]
             if "float32" in mixed_results and "mixed_float16" in mixed_results:
-                fp32_time = mixed_results["float32"].get("dense_1024", {}).get("time_ms", 0)
-                fp16_time = mixed_results["mixed_float16"].get("dense_1024", {}).get("time_ms", 0)
+                fp32_time = (
+                    mixed_results["float32"].get("dense_1024", {}).get("time_ms", 0)
+                )
+                fp16_time = (
+                    mixed_results["mixed_float16"]
+                    .get("dense_1024", {})
+                    .get("time_ms", 0)
+                )
                 if fp32_time > 0 and fp16_time > 0:
                     speedup = fp32_time / fp16_time
                     print(f"  FP32:  {fp32_time:>7.2f}ms")
@@ -418,14 +464,24 @@ class BenchmarkSuite:
 
 def main():
     """Main benchmark function."""
-    parser = argparse.ArgumentParser(description="TensorFlow sm_120 Performance Benchmark")
-    parser.add_argument("--device", default="/GPU:0", help="Device to benchmark (default: /GPU:0)")
-    parser.add_argument("--warmup", type=int, default=3, help="Number of warmup runs (default: 3)")
+    parser = argparse.ArgumentParser(
+        description="TensorFlow sm_120 Performance Benchmark"
+    )
+    parser.add_argument(
+        "--device", default="/GPU:0", help="Device to benchmark (default: /GPU:0)"
+    )
+    parser.add_argument(
+        "--warmup", type=int, default=3, help="Number of warmup runs (default: 3)"
+    )
     parser.add_argument(
         "--runs", type=int, default=10, help="Number of benchmark runs (default: 10)"
     )
-    parser.add_argument("--output", help="Output file for detailed results (JSON format)")
-    parser.add_argument("--quick", action="store_true", help="Run quick benchmark with fewer tests")
+    parser.add_argument(
+        "--output", help="Output file for detailed results (JSON format)"
+    )
+    parser.add_argument(
+        "--quick", action="store_true", help="Run quick benchmark with fewer tests"
+    )
 
     args = parser.parse_args()
 

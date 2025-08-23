@@ -78,7 +78,11 @@ class TestSM120Operations(unittest.TestCase):
         return a, b
 
     def assert_tensors_close(
-        self, actual: tf.Tensor, expected: tf.Tensor, rtol: float = 1e-3, atol: float = 1e-3
+        self,
+        actual: tf.Tensor,
+        expected: tf.Tensor,
+        rtol: float = 1e-3,
+        atol: float = 1e-3,
     ):
         """Assert that two tensors are close within tolerance."""
         if actual.dtype != expected.dtype:
@@ -93,7 +97,8 @@ class TestSM120Operations(unittest.TestCase):
         self.assertLessEqual(
             max_diff.numpy(),
             atol + rtol * tf.reduce_max(tf.abs(expected)).numpy(),
-            f"Tensors not close: max_diff={max_diff.numpy()}, " f"rtol={rtol}, atol={atol}",
+            f"Tensors not close: max_diff={max_diff.numpy()}, "
+            f"rtol={rtol}, atol={atol}",
         )
 
 
@@ -133,7 +138,9 @@ class TestAdvancedMatMul(TestSM120Operations):
                 )
 
                 # Reference result
-                result_ref = tf.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b)
+                result_ref = tf.matmul(
+                    a, b, transpose_a=transpose_a, transpose_b=transpose_b
+                )
 
                 self.assert_tensors_close(result_sm120, result_ref)
 
@@ -160,7 +167,9 @@ class TestAdvancedMatMul(TestSM120Operations):
 
         for use_tensor_cores in [True, False]:
             with self.subTest(use_tensor_cores=use_tensor_cores):
-                result = sm120_ops.advanced_matmul(a, b, use_tensor_cores=use_tensor_cores)
+                result = sm120_ops.advanced_matmul(
+                    a, b, use_tensor_cores=use_tensor_cores
+                )
                 self.assert_tensors_close(result, reference, rtol=1e-2, atol=1e-2)
 
     def test_large_matrices(self):
@@ -223,7 +232,9 @@ class TestAdvancedConv2D(TestSM120Operations):
             [batch_size, height, width, in_channels], dtype=dtype, stddev=0.1
         )
         filter_tensor = tf.random.normal(
-            [kernel_size, kernel_size, in_channels, out_channels], dtype=dtype, stddev=0.1
+            [kernel_size, kernel_size, in_channels, out_channels],
+            dtype=dtype,
+            stddev=0.1,
         )
         return input_tensor, filter_tensor
 
@@ -236,7 +247,13 @@ class TestAdvancedConv2D(TestSM120Operations):
         for dtype in [tf.float32, tf.float16]:
             with self.subTest(dtype=dtype):
                 input_tensor, filter_tensor = self.create_conv_test_data(
-                    batch_size, height, width, in_channels, out_channels, kernel_size, dtype
+                    batch_size,
+                    height,
+                    width,
+                    in_channels,
+                    out_channels,
+                    kernel_size,
+                    dtype,
                 )
 
                 # SM120 result
@@ -245,9 +262,13 @@ class TestAdvancedConv2D(TestSM120Operations):
                 )
 
                 # Reference result
-                result_ref = tf.nn.conv2d(input_tensor, filter_tensor, strides=1, padding="SAME")
+                result_ref = tf.nn.conv2d(
+                    input_tensor, filter_tensor, strides=1, padding="SAME"
+                )
 
-                self.assert_tensors_close(result_sm120, result_ref, rtol=1e-2, atol=1e-2)
+                self.assert_tensors_close(
+                    result_sm120, result_ref, rtol=1e-2, atol=1e-2
+                )
 
     def test_stride_variations(self):
         """Test convolution with different stride values."""
@@ -289,7 +310,9 @@ class TestAdvancedConv2D(TestSM120Operations):
                     input_tensor, filter_tensor, strides=1, padding=padding
                 )
 
-                result_ref = tf.nn.conv2d(input_tensor, filter_tensor, strides=1, padding=padding)
+                result_ref = tf.nn.conv2d(
+                    input_tensor, filter_tensor, strides=1, padding=padding
+                )
 
                 self.assert_tensors_close(result_sm120, result_ref)
 
@@ -313,7 +336,9 @@ class TestAdvancedConv2D(TestSM120Operations):
 
         # Benchmark reference implementation
         start_time = time.time()
-        result_ref = tf.nn.conv2d(input_tensor, filter_tensor, strides=1, padding="SAME")
+        result_ref = tf.nn.conv2d(
+            input_tensor, filter_tensor, strides=1, padding="SAME"
+        )
         ref_time = time.time() - start_time
 
         # Verify correctness
@@ -329,13 +354,20 @@ class TestFlashAttention(TestSM120Operations):
     """Tests for Flash Attention implementation."""
 
     def create_attention_test_data(
-        self, batch_size: int, num_heads: int, seq_len: int, head_dim: int, dtype: tf.DType
+        self,
+        batch_size: int,
+        num_heads: int,
+        seq_len: int,
+        head_dim: int,
+        dtype: tf.DType,
     ) -> Tuple[tf.Tensor, tf.Tensor, tf.Tensor]:
         """Create test data for attention."""
         queries = tf.random.normal(
             [batch_size, num_heads, seq_len, head_dim], dtype=dtype, stddev=0.1
         )
-        keys = tf.random.normal([batch_size, num_heads, seq_len, head_dim], dtype=dtype, stddev=0.1)
+        keys = tf.random.normal(
+            [batch_size, num_heads, seq_len, head_dim], dtype=dtype, stddev=0.1
+        )
         values = tf.random.normal(
             [batch_size, num_heads, seq_len, head_dim], dtype=dtype, stddev=0.1
         )
@@ -368,10 +400,14 @@ class TestFlashAttention(TestSM120Operations):
                 )
 
                 # Reference attention
-                output_ref, weights_ref = self.reference_attention(queries, keys, values, scale)
+                output_ref, weights_ref = self.reference_attention(
+                    queries, keys, values, scale
+                )
 
                 # Compare outputs (Flash Attention should be very close)
-                self.assert_tensors_close(output_sm120, output_ref, rtol=1e-2, atol=1e-3)
+                self.assert_tensors_close(
+                    output_sm120, output_ref, rtol=1e-2, atol=1e-3
+                )
 
     def test_causal_attention(self):
         """Test causal attention masking."""
@@ -394,7 +430,9 @@ class TestFlashAttention(TestSM120Operations):
 
         # Apply causal mask
         mask_value = tf.constant(-1e9, dtype=scores.dtype)
-        causal_mask = tf.linalg.band_part(tf.ones([seq_len, seq_len], dtype=scores.dtype), -1, 0)
+        causal_mask = tf.linalg.band_part(
+            tf.ones([seq_len, seq_len], dtype=scores.dtype), -1, 0
+        )
         causal_mask = tf.where(tf.equal(causal_mask, 0), mask_value, 0.0)
         scores += causal_mask
 
@@ -458,7 +496,11 @@ class TestPerformanceBenchmarks(TestSM120Operations):
             gflops = ops / benchmark_results["mean_time"] / 1e9
 
             results.append(
-                {"size": size, "time_ms": benchmark_results["mean_time"] * 1000, "gflops": gflops}
+                {
+                    "size": size,
+                    "time_ms": benchmark_results["mean_time"] * 1000,
+                    "gflops": gflops,
+                }
             )
 
             print(
@@ -482,9 +524,15 @@ class TestPerformanceBenchmarks(TestSM120Operations):
             (8, 224, 224, 64, 128, 3),  # Large
         ]
 
-        for i, (batch_size, height, width, in_ch, out_ch, kernel_size) in enumerate(configs):
-            input_tensor = tf.random.normal([batch_size, height, width, in_ch], dtype=dtype)
-            filter_tensor = tf.random.normal([kernel_size, kernel_size, in_ch, out_ch], dtype=dtype)
+        for i, (batch_size, height, width, in_ch, out_ch, kernel_size) in enumerate(
+            configs
+        ):
+            input_tensor = tf.random.normal(
+                [batch_size, height, width, in_ch], dtype=dtype
+            )
+            filter_tensor = tf.random.normal(
+                [kernel_size, kernel_size, in_ch, out_ch], dtype=dtype
+            )
 
             benchmark_results = sm120_ops.benchmark_operation(
                 sm120_ops.advanced_conv2d,

@@ -82,11 +82,15 @@ def benchmark_operations():
     embed_dim = 768
     num_heads = 12
 
-    print(f"Configuration: batch_size={batch_size}, seq_len={seq_len}, embed_dim={embed_dim}")
+    print(
+        f"Configuration: batch_size={batch_size}, seq_len={seq_len}, embed_dim={embed_dim}"
+    )
 
     # Generate test data
     with tf.device("/GPU:0"):
-        test_input = tf.random.normal([batch_size, seq_len, embed_dim], dtype=tf.float16)
+        test_input = tf.random.normal(
+            [batch_size, seq_len, embed_dim], dtype=tf.float16
+        )
         test_weights = tf.random.normal([embed_dim, embed_dim], dtype=tf.float16)
 
         # Warm up GPU
@@ -136,7 +140,9 @@ def benchmark_operations():
     conv_input = tf.random.normal([batch_size, 224, 224, 3], dtype=tf.float16)
 
     if SM120_AVAILABLE:
-        sm120_conv = SM120Conv2D(64, (3, 3), padding="same", use_sm120=True, dtype=tf.float16)
+        sm120_conv = SM120Conv2D(
+            64, (3, 3), padding="same", use_sm120=True, dtype=tf.float16
+        )
         sm120_conv.build(conv_input.shape)
 
         start_time = time.time()
@@ -169,7 +175,9 @@ def benchmark_operations():
     # Benchmark Multi-Head Attention
     print("\n🎯 Multi-Head Attention Benchmark")
 
-    attention_input = tf.random.normal([batch_size, seq_len, embed_dim], dtype=tf.float16)
+    attention_input = tf.random.normal(
+        [batch_size, seq_len, embed_dim], dtype=tf.float16
+    )
 
     if SM120_AVAILABLE:
         sm120_attention = SM120MultiHeadAttention(
@@ -226,7 +234,9 @@ def create_and_train_model():
     ff_dim = 2048
     num_classes = 10
 
-    print(f"Creating transformer model with embed_dim={embed_dim}, num_heads={num_heads}")
+    print(
+        f"Creating transformer model with embed_dim={embed_dim}, num_heads={num_heads}"
+    )
 
     try:
         if SM120_AVAILABLE:
@@ -245,7 +255,9 @@ def create_and_train_model():
             # Add classification head
             inputs = model.input
             x = model.output
-            x = tf.keras.layers.Dense(num_classes, activation="softmax", name="classifier")(x)
+            x = tf.keras.layers.Dense(
+                num_classes, activation="softmax", name="classifier"
+            )(x)
             model = tf.keras.Model(inputs, x, name="sm120_transformer_classifier")
 
             print("✅ SM120 optimized model created successfully")
@@ -264,13 +276,19 @@ def create_and_train_model():
             for i in range(4):
                 # Multi-head attention
                 attention_output = tf.keras.layers.MultiHeadAttention(
-                    num_heads=num_heads, key_dim=embed_dim // num_heads, name=f"attention_{i}"
+                    num_heads=num_heads,
+                    key_dim=embed_dim // num_heads,
+                    name=f"attention_{i}",
                 )(x, x)
                 attention_output = tf.keras.layers.Dropout(0.1)(attention_output)
-                x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x + attention_output)
+                x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(
+                    x + attention_output
+                )
 
                 # Feed-forward network
-                ff_output = tf.keras.layers.Dense(ff_dim, activation="relu", name=f"ff1_{i}")(x)
+                ff_output = tf.keras.layers.Dense(
+                    ff_dim, activation="relu", name=f"ff1_{i}"
+                )(x)
                 ff_output = tf.keras.layers.Dropout(0.1)(ff_output)
                 ff_output = tf.keras.layers.Dense(embed_dim, name=f"ff2_{i}")(ff_output)
                 ff_output = tf.keras.layers.Dropout(0.1)(ff_output)
@@ -278,9 +296,13 @@ def create_and_train_model():
 
             # Global average pooling and output
             x = tf.keras.layers.GlobalAveragePooling1D()(x)
-            outputs = tf.keras.layers.Dense(num_classes, activation="softmax", name="classifier")(x)
+            outputs = tf.keras.layers.Dense(
+                num_classes, activation="softmax", name="classifier"
+            )(x)
 
-            model = tf.keras.Model(inputs, outputs, name="standard_transformer_classifier")
+            model = tf.keras.Model(
+                inputs, outputs, name="standard_transformer_classifier"
+            )
             print("✅ Standard model created successfully")
 
         # Print model summary
@@ -352,7 +374,9 @@ def create_and_train_model():
 
         print(f"✅ Training completed in {training_time:.2f} seconds")
         print(f"   Final training accuracy: {history.history['accuracy'][-1]:.4f}")
-        print(f"   Final validation accuracy: {history.history['val_accuracy'][-1]:.4f}")
+        print(
+            f"   Final validation accuracy: {history.history['val_accuracy'][-1]:.4f}"
+        )
 
         return model, history
 
@@ -517,12 +541,24 @@ def main():
         if benchmark_results:
             print("\n🏆 Performance Summary:")
             if SM120_AVAILABLE:
-                if "sm120_dense" in benchmark_results and "standard_dense" in benchmark_results:
-                    speedup = benchmark_results["standard_dense"] / benchmark_results["sm120_dense"]
+                if (
+                    "sm120_dense" in benchmark_results
+                    and "standard_dense" in benchmark_results
+                ):
+                    speedup = (
+                        benchmark_results["standard_dense"]
+                        / benchmark_results["sm120_dense"]
+                    )
                     print(f"   Dense Layer Speedup: {speedup:.2f}x")
 
-                if "sm120_conv" in benchmark_results and "standard_conv" in benchmark_results:
-                    speedup = benchmark_results["standard_conv"] / benchmark_results["sm120_conv"]
+                if (
+                    "sm120_conv" in benchmark_results
+                    and "standard_conv" in benchmark_results
+                ):
+                    speedup = (
+                        benchmark_results["standard_conv"]
+                        / benchmark_results["sm120_conv"]
+                    )
                     print(f"   Conv2D Layer Speedup: {speedup:.2f}x")
 
                 if (
@@ -547,7 +583,9 @@ def main():
             print("   • SM120MultiHeadAttention for transformer models")
             print("   • SM120BatchNormalization for normalization")
         else:
-            print("\n💡 Consider upgrading to RTX 50-series GPU for maximum performance!")
+            print(
+                "\n💡 Consider upgrading to RTX 50-series GPU for maximum performance!"
+            )
 
     except Exception as e:
         print(f"\n❌ Error during demonstration: {e}")

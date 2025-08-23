@@ -150,15 +150,15 @@ install_cuda() {
     
     if command -v nvcc &> /dev/null; then
         local cuda_version=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-        if [[ "$cuda_version" =~ ^1[2-9]\.[0-9]+$ ]] && (( $(echo "$cuda_version >= 12.8" | bc -l) )); then
+        if [[ "$cuda_version" =~ ^1[2-9]\.[0-9]+$ ]] && (( $(echo "$cuda_version >= 12.4" | bc -l) )); then
             log_success "CUDA $cuda_version is already installed"
             return 0
         else
-            log_warning "CUDA $cuda_version found, but version 12.8+ is required"
+            log_warning "CUDA $cuda_version found, but version 12.4+ is required"
         fi
     fi
     
-    log_info "Installing CUDA Toolkit 12.8..."
+    log_info "Installing CUDA Toolkit 12.4..."
     
     case $OS in
         ubuntu)
@@ -168,21 +168,21 @@ install_cuda() {
             sudo apt-get update
             
             # Install CUDA toolkit
-            sudo apt-get install -y cuda-toolkit-12-8
+            sudo apt-get install -y cuda-toolkit-12-4
             
             # Add to PATH
-            echo 'export PATH=/usr/local/cuda-12.8/bin:$PATH' >> ~/.bashrc
-            echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+            echo 'export PATH=/usr/local/cuda-12.4/bin:$PATH' >> ~/.bashrc
+            echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
             ;;
         centos)
             # Add NVIDIA repository
             sudo yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
             sudo yum clean all
-            sudo yum install -y cuda-toolkit-12-8
+            sudo yum install -y cuda-toolkit-12-4
             
             # Add to PATH
-            echo 'export PATH=/usr/local/cuda-12.8/bin:$PATH' >> ~/.bashrc
-            echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.8/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+            echo 'export PATH=/usr/local/cuda-12.4/bin:$PATH' >> ~/.bashrc
+            echo 'export LD_LIBRARY_PATH=/usr/local/cuda-12.4/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
             ;;
     esac
     

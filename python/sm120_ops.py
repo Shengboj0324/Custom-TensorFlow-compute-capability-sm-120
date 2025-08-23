@@ -25,7 +25,9 @@ import warnings
 
 # Load the sm_120 operations library
 try:
-    _sm120_ops_so = tf.load_op_library(resource_loader.get_path_to_datafile("_sm120_ops.so"))
+    _sm120_ops_so = tf.load_op_library(
+        resource_loader.get_path_to_datafile("_sm120_ops.so")
+    )
     _SM120_AVAILABLE = True
 except (tf.errors.NotFoundError, OSError) as e:
     warnings.warn(
@@ -78,7 +80,8 @@ def get_sm120_device_info() -> Dict[str, Any]:
                     "index": i,
                     "name": gpu.name,
                     "compute_capability": compute_cap,
-                    "sm120_compatible": isinstance(compute_cap, tuple) and compute_cap >= (12, 0),
+                    "sm120_compatible": isinstance(compute_cap, tuple)
+                    and compute_cap >= (12, 0),
                     "details": details,
                 }
 
@@ -166,7 +169,9 @@ def advanced_matmul(
     with tf.name_scope(name or "sm120_advanced_matmul"):
         # Validate inputs
         if a.dtype != b.dtype:
-            raise ValueError(f"Input tensors must have the same dtype, got {a.dtype} and {b.dtype}")
+            raise ValueError(
+                f"Input tensors must have the same dtype, got {a.dtype} and {b.dtype}"
+            )
 
         if len(a.shape) != 2 or len(b.shape) != 2:
             raise ValueError("Input tensors must be 2-dimensional")
@@ -196,7 +201,9 @@ def advanced_matmul(
 
         # Fallback to standard TensorFlow operations
         if _config.fallback_to_standard:
-            return tf.linalg.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b)
+            return tf.linalg.matmul(
+                a, b, transpose_a=transpose_a, transpose_b=transpose_b
+            )
         else:
             raise tf.errors.UnimplementedError(
                 None, None, "SM120 operations not available and fallback disabled"
@@ -359,7 +366,9 @@ def flash_attention(
                 )
             except Exception as e:
                 if _config.fallback_to_standard:
-                    warnings.warn(f"SM120 flash attention failed, falling back to standard: {e}")
+                    warnings.warn(
+                        f"SM120 flash attention failed, falling back to standard: {e}"
+                    )
                 else:
                     raise
 
@@ -374,7 +383,9 @@ def flash_attention(
                 causal_mask_matrix = tf.linalg.band_part(
                     tf.ones([seq_len, seq_len], dtype=scores.dtype), -1, 0
                 )
-                causal_mask_matrix = tf.where(tf.equal(causal_mask_matrix, 0), mask_value, 0.0)
+                causal_mask_matrix = tf.where(
+                    tf.equal(causal_mask_matrix, 0), mask_value, 0.0
+                )
                 scores += causal_mask_matrix
 
             if attention_mask is not None and tf.size(attention_mask) > 0:
@@ -428,7 +439,11 @@ class SM120Profiler:
 
 
 def benchmark_operation(
-    operation_fn, *args, num_iterations: int = 100, warmup_iterations: int = 10, **kwargs
+    operation_fn,
+    *args,
+    num_iterations: int = 100,
+    warmup_iterations: int = 10,
+    **kwargs,
 ) -> Dict[str, float]:
     """
     Benchmark a SM120 operation.
@@ -513,7 +528,9 @@ def optimized_dense(
 
         # Add bias if requested
         if use_bias:
-            bias = tf.Variable(tf.keras.initializers.get(bias_initializer)([units]), name="bias")
+            bias = tf.Variable(
+                tf.keras.initializers.get(bias_initializer)([units]), name="bias"
+            )
             outputs = tf.nn.bias_add(outputs, bias)
 
         # Apply activation

@@ -25,7 +25,9 @@ except ImportError:
 class SM120Layer(tf.keras.layers.Layer):
     """Base class for all SM120 optimized layers with automatic fallback."""
 
-    def __init__(self, use_sm120: bool = True, fallback_on_error: bool = True, **kwargs):
+    def __init__(
+        self, use_sm120: bool = True, fallback_on_error: bool = True, **kwargs
+    ):
         super().__init__(**kwargs)
         self.use_sm120 = use_sm120 and SM120_AVAILABLE
         self.fallback_on_error = fallback_on_error
@@ -87,7 +89,9 @@ class SM120Dense(SM120Layer):
         fallback_on_error: bool = True,
         **kwargs,
     ):
-        super().__init__(use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs)
+        super().__init__(
+            use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs
+        )
 
         self.units = int(units) if not isinstance(units, int) else units
         if self.units <= 0:
@@ -179,12 +183,24 @@ class SM120Dense(SM120Layer):
                 "units": self.units,
                 "activation": tf.keras.activations.serialize(self.activation),
                 "use_bias": self.use_bias,
-                "kernel_initializer": tf.keras.initializers.serialize(self.kernel_initializer),
-                "bias_initializer": tf.keras.initializers.serialize(self.bias_initializer),
-                "kernel_regularizer": tf.keras.regularizers.serialize(self.kernel_regularizer),
-                "bias_regularizer": tf.keras.regularizers.serialize(self.bias_regularizer),
-                "activity_regularizer": tf.keras.regularizers.serialize(self.activity_regularizer),
-                "kernel_constraint": tf.keras.constraints.serialize(self.kernel_constraint),
+                "kernel_initializer": tf.keras.initializers.serialize(
+                    self.kernel_initializer
+                ),
+                "bias_initializer": tf.keras.initializers.serialize(
+                    self.bias_initializer
+                ),
+                "kernel_regularizer": tf.keras.regularizers.serialize(
+                    self.kernel_regularizer
+                ),
+                "bias_regularizer": tf.keras.regularizers.serialize(
+                    self.bias_regularizer
+                ),
+                "activity_regularizer": tf.keras.regularizers.serialize(
+                    self.activity_regularizer
+                ),
+                "kernel_constraint": tf.keras.constraints.serialize(
+                    self.kernel_constraint
+                ),
                 "bias_constraint": tf.keras.constraints.serialize(self.bias_constraint),
                 "use_sm120": self.use_sm120,
                 "fallback_on_error": self.fallback_on_error,
@@ -242,14 +258,18 @@ class SM120Conv2D(SM120Layer):
         fallback_on_error: bool = True,
         **kwargs,
     ):
-        super().__init__(use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs)
+        super().__init__(
+            use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs
+        )
 
         self.filters = filters
         self.kernel_size = tf.keras.utils.normalize_tuple(kernel_size, 2, "kernel_size")
         self.strides = tf.keras.utils.normalize_tuple(strides, 2, "strides")
         self.padding = tf.keras.utils.normalize_padding(padding)
         self.data_format = tf.keras.utils.normalize_data_format(data_format)
-        self.dilation_rate = tf.keras.utils.normalize_tuple(dilation_rate, 2, "dilation_rate")
+        self.dilation_rate = tf.keras.utils.normalize_tuple(
+            dilation_rate, 2, "dilation_rate"
+        )
         self.groups = groups
         self.activation = tf.keras.activations.get(activation)
         self.use_bias = use_bias
@@ -321,7 +341,10 @@ class SM120Conv2D(SM120Layer):
     def call(self, inputs):
         def sm120_conv2d():
             return sm120_ops.conv2d(
-                inputs, self.kernel, strides=(1, *self.strides, 1), padding=self.padding.upper()
+                inputs,
+                self.kernel,
+                strides=(1, *self.strides, 1),
+                padding=self.padding.upper(),
             )
 
         def standard_conv2d():
@@ -405,12 +428,24 @@ class SM120Conv2D(SM120Layer):
                 "groups": self.groups,
                 "activation": tf.keras.activations.serialize(self.activation),
                 "use_bias": self.use_bias,
-                "kernel_initializer": tf.keras.initializers.serialize(self.kernel_initializer),
-                "bias_initializer": tf.keras.initializers.serialize(self.bias_initializer),
-                "kernel_regularizer": tf.keras.regularizers.serialize(self.kernel_regularizer),
-                "bias_regularizer": tf.keras.regularizers.serialize(self.bias_regularizer),
-                "activity_regularizer": tf.keras.regularizers.serialize(self.activity_regularizer),
-                "kernel_constraint": tf.keras.constraints.serialize(self.kernel_constraint),
+                "kernel_initializer": tf.keras.initializers.serialize(
+                    self.kernel_initializer
+                ),
+                "bias_initializer": tf.keras.initializers.serialize(
+                    self.bias_initializer
+                ),
+                "kernel_regularizer": tf.keras.regularizers.serialize(
+                    self.kernel_regularizer
+                ),
+                "bias_regularizer": tf.keras.regularizers.serialize(
+                    self.bias_regularizer
+                ),
+                "activity_regularizer": tf.keras.regularizers.serialize(
+                    self.activity_regularizer
+                ),
+                "kernel_constraint": tf.keras.constraints.serialize(
+                    self.kernel_constraint
+                ),
                 "bias_constraint": tf.keras.constraints.serialize(self.bias_constraint),
                 "use_sm120": self.use_sm120,
                 "fallback_on_error": self.fallback_on_error,
@@ -445,7 +480,9 @@ class SM120BatchNormalization(SM120Layer):
         fallback_on_error: bool = True,
         **kwargs,
     ):
-        super().__init__(use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs)
+        super().__init__(
+            use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs
+        )
 
         self.axis = axis
         self.momentum = momentum
@@ -454,8 +491,12 @@ class SM120BatchNormalization(SM120Layer):
         self.scale = scale
         self.beta_initializer = tf.keras.initializers.get(beta_initializer)
         self.gamma_initializer = tf.keras.initializers.get(gamma_initializer)
-        self.moving_mean_initializer = tf.keras.initializers.get(moving_mean_initializer)
-        self.moving_variance_initializer = tf.keras.initializers.get(moving_variance_initializer)
+        self.moving_mean_initializer = tf.keras.initializers.get(
+            moving_mean_initializer
+        )
+        self.moving_variance_initializer = tf.keras.initializers.get(
+            moving_variance_initializer
+        )
         self.beta_regularizer = tf.keras.regularizers.get(beta_regularizer)
         self.gamma_regularizer = tf.keras.regularizers.get(gamma_regularizer)
         self.beta_constraint = tf.keras.constraints.get(beta_constraint)
@@ -556,18 +597,28 @@ class SM120BatchNormalization(SM120Layer):
                 "epsilon": self.epsilon,
                 "center": self.center,
                 "scale": self.scale,
-                "beta_initializer": tf.keras.initializers.serialize(self.beta_initializer),
-                "gamma_initializer": tf.keras.initializers.serialize(self.gamma_initializer),
+                "beta_initializer": tf.keras.initializers.serialize(
+                    self.beta_initializer
+                ),
+                "gamma_initializer": tf.keras.initializers.serialize(
+                    self.gamma_initializer
+                ),
                 "moving_mean_initializer": tf.keras.initializers.serialize(
                     self.moving_mean_initializer
                 ),
                 "moving_variance_initializer": tf.keras.initializers.serialize(
                     self.moving_variance_initializer
                 ),
-                "beta_regularizer": tf.keras.regularizers.serialize(self.beta_regularizer),
-                "gamma_regularizer": tf.keras.regularizers.serialize(self.gamma_regularizer),
+                "beta_regularizer": tf.keras.regularizers.serialize(
+                    self.beta_regularizer
+                ),
+                "gamma_regularizer": tf.keras.regularizers.serialize(
+                    self.gamma_regularizer
+                ),
                 "beta_constraint": tf.keras.constraints.serialize(self.beta_constraint),
-                "gamma_constraint": tf.keras.constraints.serialize(self.gamma_constraint),
+                "gamma_constraint": tf.keras.constraints.serialize(
+                    self.gamma_constraint
+                ),
                 "use_sm120": self.use_sm120,
                 "fallback_on_error": self.fallback_on_error,
             }
@@ -603,7 +654,9 @@ class SM120MultiHeadAttention(SM120Layer):
         use_flash_attention: bool = True,
         **kwargs,
     ):
-        super().__init__(use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs)
+        super().__init__(
+            use_sm120=use_sm120, fallback_on_error=fallback_on_error, **kwargs
+        )
 
         self.num_heads = num_heads
         self.key_dim = key_dim
@@ -626,7 +679,9 @@ class SM120MultiHeadAttention(SM120Layer):
     def build(self, input_shape):
         if isinstance(input_shape, list):
             if len(input_shape) != 3:
-                raise ValueError("MultiHeadAttention expects exactly 3 inputs: [query, key, value]")
+                raise ValueError(
+                    "MultiHeadAttention expects exactly 3 inputs: [query, key, value]"
+                )
             query_shape, key_shape, value_shape = input_shape
         else:
             query_shape = key_shape = value_shape = input_shape
@@ -702,10 +757,14 @@ class SM120MultiHeadAttention(SM120Layer):
 
         super().build(input_shape)
 
-    def call(self, inputs, attention_mask=None, return_attention_scores=False, training=None):
+    def call(
+        self, inputs, attention_mask=None, return_attention_scores=False, training=None
+    ):
         if isinstance(inputs, list):
             if len(inputs) != 3:
-                raise ValueError("MultiHeadAttention expects exactly 3 inputs: [query, key, value]")
+                raise ValueError(
+                    "MultiHeadAttention expects exactly 3 inputs: [query, key, value]"
+                )
             query, key, value = inputs
         else:
             query = key = value = inputs
@@ -722,7 +781,9 @@ class SM120MultiHeadAttention(SM120Layer):
 
         query = tf.reshape(query, [batch_size, seq_len_q, self.num_heads, self.key_dim])
         key = tf.reshape(key, [batch_size, seq_len_k, self.num_heads, self.key_dim])
-        value = tf.reshape(value, [batch_size, seq_len_k, self.num_heads, self.value_dim])
+        value = tf.reshape(
+            value, [batch_size, seq_len_k, self.num_heads, self.value_dim]
+        )
 
         # Transpose for attention computation: [batch, heads, seq_len, dim]
         query = tf.transpose(query, [0, 2, 1, 3])
@@ -770,7 +831,9 @@ class SM120MultiHeadAttention(SM120Layer):
                 lambda: sm120_attention(), standard_attention
             )
         else:
-            attention_output = self._try_sm120_operation(sm120_attention, standard_attention)
+            attention_output = self._try_sm120_operation(
+                sm120_attention, standard_attention
+            )
 
         # Transpose back and reshape
         attention_output = tf.transpose(attention_output, [0, 2, 1, 3])
@@ -796,12 +859,24 @@ class SM120MultiHeadAttention(SM120Layer):
                 "use_bias": self.use_bias,
                 "output_shape": self.output_shape,
                 "attention_axes": self.attention_axes,
-                "kernel_initializer": tf.keras.initializers.serialize(self.kernel_initializer),
-                "bias_initializer": tf.keras.initializers.serialize(self.bias_initializer),
-                "kernel_regularizer": tf.keras.regularizers.serialize(self.kernel_regularizer),
-                "bias_regularizer": tf.keras.regularizers.serialize(self.bias_regularizer),
-                "activity_regularizer": tf.keras.regularizers.serialize(self.activity_regularizer),
-                "kernel_constraint": tf.keras.constraints.serialize(self.kernel_constraint),
+                "kernel_initializer": tf.keras.initializers.serialize(
+                    self.kernel_initializer
+                ),
+                "bias_initializer": tf.keras.initializers.serialize(
+                    self.bias_initializer
+                ),
+                "kernel_regularizer": tf.keras.regularizers.serialize(
+                    self.kernel_regularizer
+                ),
+                "bias_regularizer": tf.keras.regularizers.serialize(
+                    self.bias_regularizer
+                ),
+                "activity_regularizer": tf.keras.regularizers.serialize(
+                    self.activity_regularizer
+                ),
+                "kernel_constraint": tf.keras.constraints.serialize(
+                    self.kernel_constraint
+                ),
                 "bias_constraint": tf.keras.constraints.serialize(self.bias_constraint),
                 "use_sm120": self.use_sm120,
                 "fallback_on_error": self.fallback_on_error,
@@ -861,15 +936,21 @@ def create_sm120_transformer_encoder(
         x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x + attention_output)
 
         # Feed-forward network
-        ff_output = SM120Dense(ff_dim, activation="relu", use_sm120=use_sm120, name=f"ff1_{i}")(x)
+        ff_output = SM120Dense(
+            ff_dim, activation="relu", use_sm120=use_sm120, name=f"ff1_{i}"
+        )(x)
         ff_output = tf.keras.layers.Dropout(dropout_rate)(ff_output)
-        ff_output = SM120Dense(embed_dim, use_sm120=use_sm120, name=f"ff2_{i}")(ff_output)
+        ff_output = SM120Dense(embed_dim, use_sm120=use_sm120, name=f"ff2_{i}")(
+            ff_output
+        )
         ff_output = tf.keras.layers.Dropout(dropout_rate)(ff_output)
         x = tf.keras.layers.LayerNormalization(epsilon=1e-6)(x + ff_output)
 
     # Global average pooling and output
     x = tf.keras.layers.GlobalAveragePooling1D()(x)
-    outputs = SM120Dense(vocab_size, activation="softmax", use_sm120=use_sm120, name="output")(x)
+    outputs = SM120Dense(
+        vocab_size, activation="softmax", use_sm120=use_sm120, name="output"
+    )(x)
 
     model = tf.keras.Model(inputs, outputs, name="sm120_transformer_encoder")
     return model

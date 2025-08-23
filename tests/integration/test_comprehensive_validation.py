@@ -15,7 +15,9 @@ from typing import List, Dict, Tuple, Any
 import warnings
 
 # Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 
 try:
     from python.sm120_keras_layers import (
@@ -89,9 +91,9 @@ class TestEnvironmentSetup:
                 gpu_info[f"gpu_{i}"] = {
                     "name": gpu.name,
                     "compute_capability": compute_capability,
-                    "memory_limit": tf.config.experimental.get_memory_info(gpu.name).get(
-                        "total", 0
-                    ),
+                    "memory_limit": tf.config.experimental.get_memory_info(
+                        gpu.name
+                    ).get("total", 0),
                 }
 
                 # Check minimum requirements
@@ -158,7 +160,9 @@ class TestBasicOperations:
             else:
                 tolerance = TEST_CONFIG["tolerance"] * 10  # Relaxed for FP16
 
-            tf.debugging.assert_near(result_sm120, result_standard, atol=tolerance, rtol=tolerance)
+            tf.debugging.assert_near(
+                result_sm120, result_standard, atol=tolerance, rtol=tolerance
+            )
 
             # Performance check
             speedup = standard_time / sm120_time
@@ -207,7 +211,9 @@ class TestBasicOperations:
             )
 
             speedup = standard_time / sm120_time
-            print(f"Conv2D batch={batch_size}, channels={channels}: {speedup:.2f}x speedup")
+            print(
+                f"Conv2D batch={batch_size}, channels={channels}: {speedup:.2f}x speedup"
+            )
 
             assert speedup >= TEST_CONFIG["performance_threshold"]
 
@@ -402,7 +408,9 @@ class TestTrainingIntegration:
                 final_loss = loss.numpy()
 
         # Verify training progress
-        assert final_loss < initial_loss, f"Training failed: {final_loss} >= {initial_loss}"
+        assert (
+            final_loss < initial_loss
+        ), f"Training failed: {final_loss} >= {initial_loss}"
 
         print(f"✅ Training test passed: {initial_loss:.4f} -> {final_loss:.4f}")
 
@@ -431,7 +439,9 @@ class TestPerformanceValidation:
             ]
         )
 
-        input_data = tf.random.normal((batch_size, seq_len, embed_dim), dtype=tf.float16)
+        input_data = tf.random.normal(
+            (batch_size, seq_len, embed_dim), dtype=tf.float16
+        )
 
         # Benchmark
         start_time = time.perf_counter()
@@ -490,7 +500,9 @@ class TestPerformanceValidation:
             use_flash_attention=True,
         )
 
-        input_data = tf.random.normal((batch_size, seq_len, embed_dim), dtype=tf.float16)
+        input_data = tf.random.normal(
+            (batch_size, seq_len, embed_dim), dtype=tf.float16
+        )
 
         # Forward pass with memory monitoring
         try:
@@ -622,7 +634,9 @@ class TestComprehensiveIntegration:
 
         # Compile model
         full_model.compile(
-            optimizer="adam", loss="sparse_categorical_crossentropy", metrics=["accuracy"]
+            optimizer="adam",
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"],
         )
 
         # Generate synthetic data
@@ -634,7 +648,9 @@ class TestComprehensiveIntegration:
 
         # Training
         try:
-            history = full_model.fit(x_train, y_train, batch_size=batch_size, epochs=2, verbose=0)
+            history = full_model.fit(
+                x_train, y_train, batch_size=batch_size, epochs=2, verbose=0
+            )
 
             # Verify training worked
             assert len(history.history["loss"]) == 2

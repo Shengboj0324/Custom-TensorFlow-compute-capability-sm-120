@@ -123,7 +123,9 @@ def test_basic_operations(gpu_devices: List[tf.config.PhysicalDevice]) -> bool:
             result = c.numpy()  # Force computation
             end_time = time.time()
 
-            print(f"  Matrix multiplication completed in {end_time - start_time:.4f} seconds")
+            print(
+                f"  Matrix multiplication completed in {end_time - start_time:.4f} seconds"
+            )
             print(f"  Result shape: {result.shape}")
             print(f"  Result mean: {np.mean(result):.6f}")
             print("✅ Basic matrix operations successful")
@@ -159,7 +161,10 @@ def test_tensor_operations(gpu_devices: List[tf.config.PhysicalDevice]) -> bool:
 
             # Create convolution layer
             conv_layer = tf.keras.layers.Conv2D(
-                filters=filters, kernel_size=kernel_size, padding="same", activation="relu"
+                filters=filters,
+                kernel_size=kernel_size,
+                padding="same",
+                activation="relu",
             )
 
             start_time = time.time()
@@ -410,7 +415,9 @@ def main():
     print(f"\nOverall: {passed_tests}/{total_tests} tests passed")
 
     if passed_tests == total_tests:
-        print("\n🎉 All tests passed! Your TensorFlow sm_120 installation is working correctly.")
+        print(
+            "\n🎉 All tests passed! Your TensorFlow sm_120 installation is working correctly."
+        )
 
         if gpu_devices:
             # Check if we have sm_120 GPU
@@ -428,11 +435,15 @@ def main():
             if has_sm120:
                 print("🚀 RTX 50-series GPU (sm_120) detected and working optimally!")
             else:
-                print("ℹ️  GPU detected but not RTX 50-series. Build will work on other GPUs too.")
+                print(
+                    "ℹ️  GPU detected but not RTX 50-series. Build will work on other GPUs too."
+                )
 
         return 0
     else:
-        print(f"\n⚠️  {total_tests - passed_tests} test(s) failed. Please check your installation.")
+        print(
+            f"\n⚠️  {total_tests - passed_tests} test(s) failed. Please check your installation."
+        )
         return 1
 
 
