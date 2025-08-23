@@ -16,6 +16,112 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 from pybind11 import get_cmake_dir
 import pybind11
 
+# Utility function for safe version parsing (prevents packaging.version.Version issues)
+def parse_version_safely(version_str: str) -> tuple:
+    """Safely parse version string without using packaging.version.Version."""
+    try:
+        # Handle version strings like "12.8" or "12.8.0"
+        parts = version_str.split('.')
+        major = int(parts[0]) if len(parts) > 0 else 0
+        minor = int(parts[1]) if len(parts) > 1 else 0
+        patch = int(parts[2]) if len(parts) > 2 else 0
+        return (major, minor, patch)
+    except (ValueError, IndexError):
+        return (0, 0, 0)
+
+def compare_versions(version1: str, version2: str) -> int:
+    """Compare two version strings. Returns -1, 0, or 1."""
+    v1 = parse_version_safely(version1)
+    v2 = parse_version_safely(version2)
+    
+    if v1 < v2:
+        return -1
+    elif v1 > v2:
+        return 1
+    else:
+        return 0
+
+def sanitize_path(path: str) -> str:
+    """Sanitize path to prevent injection attacks."""
+    if not path:
+        return ""
+    
+    # Resolve to absolute path and normalize
+    abs_path = os.path.abspath(os.path.expanduser(path))
+    
+    # Security: Only allow paths in safe locations
+    safe_prefixes = [
+        '/usr/local/',
+        '/usr/bin/',
+        '/usr/sbin/', 
+        '/opt/',
+        '/snap/',
+        os.path.expanduser('~/'),  # User home directory
+    ]
+    
+    # On Windows, also allow standard locations
+    if platform.system() == "Windows":
+        safe_prefixes.extend([
+            'C:\\Program Files\\',
+            'C:\\Program Files (x86)\\',
+            'C:\\Windows\\System32\\',
+            os.path.expanduser('~\\AppData\\'),
+        ])
+    
+    # Check if path starts with any safe prefix
+    for prefix in safe_prefixes:
+        if abs_path.startswith(os.path.abspath(prefix)):
+            return abs_path
+    
+    # Path is not in a safe location
+    raise ValueError(f"Path '{path}' is not in a safe location")
+
+def find_executable_safely(name: str, env_paths: list = None) -> str:
+    """Find executable with path sanitization."""
+    import shutil
+    
+    # First try standard locations
+    standard_locations = {
+        'nvcc': [
+            '/usr/local/cuda/bin/nvcc',
+            '/usr/local/cuda-12.8/bin/nvcc',
+            '/usr/local/cuda-12/bin/nvcc',
+            '/opt/cuda/bin/nvcc',
+        ],
+        'nvidia-smi': [
+            '/usr/bin/nvidia-smi',
+            '/usr/local/cuda/bin/nvidia-smi',
+            '/opt/nvidia/cuda/bin/nvidia-smi',
+        ]
+    }
+    
+    # Try standard locations first
+    if name in standard_locations:
+        for location in standard_locations[name]:
+            if os.path.isfile(location) and os.access(location, os.X_OK):
+                return location
+    
+    # Try environment paths if provided
+    if env_paths:
+        for path in env_paths:
+            try:
+                safe_path = sanitize_path(path)
+                full_path = os.path.join(safe_path, name)
+                if os.path.isfile(full_path) and os.access(full_path, os.X_OK):
+                    return full_path
+            except ValueError:
+                continue  # Skip unsafe paths
+    
+    # Finally try shutil.which as last resort (less safe)
+    which_result = shutil.which(name)
+    if which_result:
+        try:
+            return sanitize_path(which_result)
+        except ValueError:
+            pass  # PATH contains unsafe location
+    
+    return ""
+
 # Project metadata
 __version__ = "1.0.0"
 __description__ = "TensorFlow optimizations for RTX 50-series GPUs (sm_120)"
@@ -30,85 +136,59 @@ if sys.version_info < (3, 9):
 # Check for CUDA
 def check_cuda():
     """Check if CUDA is available and get version."""
-    # Security: Use absolute paths and validate CUDA_HOME
-    nvcc_paths = [
-        '/usr/local/cuda/bin/nvcc',
-        '/usr/local/cuda-12.8/bin/nvcc',
-        '/usr/local/cuda-12/bin/nvcc',
-    ]
-    
-    # Add CUDA_HOME path if it exists and is valid
+    # Security: Use sanitized path finding
     cuda_home = os.environ.get('CUDA_HOME')
-    if cuda_home and os.path.isdir(cuda_home):
-        # Validate CUDA_HOME to prevent path injection
-        if os.path.abspath(cuda_home).startswith(('/usr/local/', '/opt/', '/usr/')):
-            nvcc_paths.insert(0, os.path.join(cuda_home, 'bin', 'nvcc'))
-    
-    # Try nvcc from PATH as fallback (less secure but sometimes necessary)
-    import shutil
-    nvcc_in_path = shutil.which('nvcc')
-    if nvcc_in_path:
-        nvcc_paths.append(nvcc_in_path)
-    
-    for nvcc_path in nvcc_paths:
+    env_paths = []
+    if cuda_home:
         try:
-            if not os.path.isfile(nvcc_path):
-                continue
-                
-            result = subprocess.run([nvcc_path, '--version'], 
-                                  capture_output=True, text=True, check=True, timeout=10)
-            output = result.stdout
-            
-            # Extract CUDA version
-            for line in output.split('\n'):
-                if 'release' in line:
-                    version_str = line.split('release ')[1].split(',')[0]
-                    major, minor = map(int, version_str.split('.'))
-                    if major >= 12 and minor >= 8:
-                        return True, f"{major}.{minor}"
-                    else:
-                        print(f"Warning: CUDA {version_str} found, but 12.8+ required")
-                        return False, version_str
-            
-            return False, "unknown"
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, ValueError):
-            continue
+            safe_cuda_home = sanitize_path(cuda_home)
+            env_paths.append(os.path.join(safe_cuda_home, 'bin'))
+        except ValueError:
+            print(f"Warning: CUDA_HOME path '{cuda_home}' is not safe, ignoring")
     
-    return False, "not found"
+    nvcc_path = find_executable_safely('nvcc', env_paths)
+    if not nvcc_path:
+        return False, "not found"
+    
+    try:
+        result = subprocess.run([nvcc_path, '--version'], 
+                              capture_output=True, text=True, check=True, timeout=10)
+        output = result.stdout
+        
+        # Extract CUDA version
+        for line in output.split('\n'):
+            if 'release' in line:
+                version_str = line.split('release ')[1].split(',')[0]
+                # Use safe version parsing to avoid packaging.version.Version issues
+                if compare_versions(version_str, "12.8") >= 0:
+                    return True, version_str
+                else:
+                    print(f"Warning: CUDA {version_str} found, but 12.8+ required")
+                    return False, version_str
+        
+        return False, "unknown"
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+        return False, "not found"
 
 # Check for RTX 50-series GPU
 def check_sm120_gpu():
     """Check if RTX 50-series GPU is available."""
-    # Security: Use absolute paths for nvidia-smi
-    nvidia_smi_paths = [
-        '/usr/bin/nvidia-smi',
-        '/usr/local/cuda/bin/nvidia-smi',
-        '/opt/nvidia/cuda/bin/nvidia-smi',
-    ]
+    # Security: Use sanitized path finding
+    nvidia_smi_path = find_executable_safely('nvidia-smi')
+    if not nvidia_smi_path:
+        return False, []
     
-    # Add PATH lookup as fallback
-    import shutil
-    nvidia_smi_in_path = shutil.which('nvidia-smi')
-    if nvidia_smi_in_path:
-        nvidia_smi_paths.append(nvidia_smi_in_path)
-    
-    for nvidia_smi_path in nvidia_smi_paths:
-        try:
-            if not os.path.isfile(nvidia_smi_path):
-                continue
-                
-            result = subprocess.run([nvidia_smi_path, '--query-gpu=compute_cap', 
-                                   '--format=csv,noheader,nounits'],
-                                  capture_output=True, text=True, check=True, timeout=15)
-            
-            compute_caps = result.stdout.strip().split('\n')
-            has_sm120 = any('12.0' in cap for cap in compute_caps if cap.strip())
-            
-            return has_sm120, compute_caps
-        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-    
-    return False, []
+    try:
+        result = subprocess.run([nvidia_smi_path, '--query-gpu=compute_cap', 
+                               '--format=csv,noheader,nounits'],
+                              capture_output=True, text=True, check=True, timeout=15)
+        
+        compute_caps = result.stdout.strip().split('\n')
+        has_sm120 = any('12.0' in cap for cap in compute_caps if cap.strip())
+        
+        return has_sm120, compute_caps
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+        return False, []
 
 # Find TensorFlow
 def find_tensorflow():
