@@ -415,7 +415,8 @@ class SM120TypeManager:
             if total_memory_usage > target_memory_bytes:
                 # Reduce precision to meet memory constraint
                 warnings.warn(
-                    f"Recommended types exceed memory target. Total: {total_memory_usage/1024**3:.2f}GB"
+                    f"Recommended types exceed memory target. "
+                    f"Total: {total_memory_usage/1024**3:.2f}GB"
                 )
 
                 # Iteratively reduce precision for largest layers
@@ -456,7 +457,7 @@ class SM120TypeManager:
         print("🔢 SM120 DATA TYPE SUPPORT SUMMARY")
         print("=" * 70)
 
-        print(f"\n🖥️  GPU Information:")
+        print("\n🖥️  GPU Information:")
         print(f"   Compute Capability: {self._gpu_compute_capability}")
         print(
             f"   Mixed Precision: {'Enabled' if self._mixed_precision_enabled else 'Disabled'}"
@@ -481,7 +482,7 @@ class SM120TypeManager:
                 f"{properties.get('compute_efficiency', 0):<11.1f}x {supported}"
             )
 
-        print(f"\n🎯 Optimal Types by Operation:")
+        print("\n🎯 Optimal Types by Operation:")
         for operation, dtype in self._optimal_types.items():
             print(f"   {operation.capitalize():<15}: {dtype.value}")
 

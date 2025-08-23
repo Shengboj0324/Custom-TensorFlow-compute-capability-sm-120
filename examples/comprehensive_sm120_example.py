@@ -19,11 +19,9 @@ try:
     from python.sm120_keras_layers import (
         SM120Dense,
         SM120Conv2D,
-        SM120BatchNormalization,
         SM120MultiHeadAttention,
         create_sm120_transformer_encoder,
     )
-    from python import sm120_ops
 
     SM120_AVAILABLE = True
     print("✅ SM120 optimized operations loaded successfully")
@@ -306,10 +304,11 @@ def create_and_train_model():
             print("✅ Standard model created successfully")
 
         # Print model summary
-        print(f"\nModel Summary:")
+        print("\nModel Summary:")
         print(f"   Total parameters: {model.count_params():,}")
         print(
-            f"   Trainable parameters: {sum([tf.keras.backend.count_params(w) for w in model.trainable_weights]):,}"
+            f"   Trainable parameters: "
+            f"{sum([tf.keras.backend.count_params(w) for w in model.trainable_weights]):,}"
         )
 
         # Compile model
@@ -470,7 +469,7 @@ def memory_usage_analysis():
                 # Force computation
                 _ = tf.reduce_sum(sm120_output).numpy()
 
-                print(f"      SM120 operation completed")
+                print("      SM120 operation completed")
 
             # Standard operation
             standard_layer = tf.keras.layers.Dense(size, dtype=tf.float16)
@@ -479,7 +478,7 @@ def memory_usage_analysis():
             # Force computation
             _ = tf.reduce_sum(standard_output).numpy()
 
-            print(f"      Standard operation completed")
+            print("      Standard operation completed")
 
             # Clean up
             del large_input

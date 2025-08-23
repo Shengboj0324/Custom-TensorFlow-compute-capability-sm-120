@@ -8,11 +8,10 @@ and basic functionality tests.
 """
 
 import sys
-import os
+
 import subprocess
-import json
-from typing import List, Dict, Tuple, Optional
-import importlib.util
+
+from typing import List, Dict, Optional
 
 
 # Colors for terminal output

@@ -8,7 +8,7 @@ Copyright 2024 - TensorFlow SM120 Optimization Project
 
 import tensorflow as tf
 import numpy as np
-from typing import Optional, Union, List, Tuple, Any
+from typing import Optional, Union, Tuple
 import warnings
 
 try:
@@ -120,7 +120,8 @@ class SM120Dense(SM120Layer):
         last_dim = tf.compat.dimension_value(input_shape[-1])
         if last_dim is None:
             raise ValueError(
-                f"The last dimension of the inputs to a Dense layer should be defined, got {input_shape}"
+                f"The last dimension of the inputs to a Dense layer "
+                f"should be defined, got {input_shape}"
             )
 
         self.input_spec = tf.keras.layers.InputSpec(min_ndim=2, axes={-1: last_dim})
@@ -289,7 +290,8 @@ class SM120Conv2D(SM120Layer):
 
         if self.dilation_rate != (1, 1):
             warnings.warn(
-                "SM120Conv2D currently only supports dilation_rate=(1,1). Using standard implementation."
+                "SM120Conv2D currently only supports dilation_rate=(1,1). "
+                "Using standard implementation."
             )
             self._sm120_enabled = False
 
@@ -691,8 +693,8 @@ class SM120MultiHeadAttention(SM120Layer):
         value_shape = tf.TensorShape(value_shape)
 
         query_dims = query_shape[-1]
-        key_dims = key_shape[-1]
-        value_dims = value_shape[-1]
+        _ = key_shape[-1]  # key_dims
+        _ = value_shape[-1]  # value_dims
 
         # Query projection
         self.query_dense = SM120Dense(

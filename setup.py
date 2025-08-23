@@ -11,9 +11,9 @@ import sys
 import subprocess
 import platform
 from pathlib import Path
-from setuptools import setup, Extension, find_packages
+from setuptools import setup, find_packages
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-from pybind11 import get_cmake_dir
+
 import pybind11
 
 
@@ -505,7 +505,8 @@ def print_installation_info():
     print("=" * 60)
     print("Next steps:")
     print(
-        "1. Validate installation: python -c 'import tensorflow_sm120; print(tensorflow_sm120.is_sm120_available())'"
+        "1. Validate installation: python -c "
+        "'import tensorflow_sm120; print(tensorflow_sm120.is_sm120_available())'"
     )
     print("2. Run tests: python -m pytest tests/")
     print("3. Check examples: python examples/basic_usage.py")

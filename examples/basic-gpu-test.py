@@ -10,7 +10,7 @@ import os
 import sys
 import time
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List
 
 try:
     import tensorflow as tf
@@ -48,7 +48,7 @@ def check_tensorflow_info() -> None:
     # Check for XLA support
     try:
         print(f"XLA enabled: {tf.config.optimizer.get_jit() is not None}")
-    except:
+    except Exception:
         print("XLA status: Unknown")
 
 
@@ -76,7 +76,7 @@ def check_gpu_devices() -> List[tf.config.PhysicalDevice]:
         # Get device details
         try:
             details = tf.config.experimental.get_device_details(gpu)
-            print(f"  Device Details:")
+            print("  Device Details:")
             for key, value in details.items():
                 if key == "compute_capability":
                     if isinstance(value, tuple):
@@ -169,7 +169,7 @@ def test_tensor_operations(gpu_devices: List[tf.config.PhysicalDevice]) -> bool:
 
             start_time = time.time()
             conv_output = conv_layer(x)
-            result = conv_output.numpy()  # Force computation
+            _ = conv_output.numpy()  # Force computation
             end_time = time.time()
 
             print(f"     Input shape: {x.shape}")
@@ -429,7 +429,7 @@ def main():
                     if cc == (12, 0):
                         has_sm120 = True
                         break
-                except:
+                except Exception:
                     pass
 
             if has_sm120:

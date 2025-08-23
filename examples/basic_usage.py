@@ -19,7 +19,7 @@ try:
     import sm120_ops
 
     print(f"✓ TensorFlow {tf.__version__} loaded successfully")
-    print(f"✓ SM120 operations loaded successfully")
+    print("✓ SM120 operations loaded successfully")
 except ImportError as e:
     print(f"❌ Failed to import required modules: {e}")
     print("Please ensure TensorFlow and SM120 operations are installed correctly")
@@ -52,7 +52,8 @@ def check_sm120_availability():
     device_info = sm120_ops.get_sm120_device_info()
     print(f"Library loaded: {device_info['library_loaded']}")
     print(
-        f"Compatible devices found: {len([d for d in device_info['devices'] if d.get('sm120_compatible', False)])}"
+        f"Compatible devices found: "
+        f"{len([d for d in device_info['devices'] if d.get('sm120_compatible', False)])}"
     )
 
     # Display device details

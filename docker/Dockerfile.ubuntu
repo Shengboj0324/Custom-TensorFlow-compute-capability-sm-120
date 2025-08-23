@@ -86,27 +86,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LLVM 22 (required for TensorFlow compilation)
-RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
-    echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-22 main" > /etc/apt/sources.list.d/llvm.list && \
-    apt-get update && \
+# Install LLVM 17 (required for TensorFlow compilation)
+RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    clang-22 \
-    clang++-22 \
-    llvm-22 \
-    llvm-22-dev \
-    llvm-22-tools \
-    llvm-22-runtime \
-    libc++-22-dev \
-    libc++abi-22-dev \
-    lld-22 \
+    clang-17 \
+    clang++-17 \
+    llvm-17 \
+    llvm-17-dev \
+    llvm-17-tools \
+    llvm-17-runtime \
+    libc++-17-dev \
+    libc++abi-17-dev \
+    lld-17 \
     && rm -rf /var/lib/apt/lists/* && \
     # Set up alternatives for clang
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100 && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100 && \
-    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-22 100
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100 && \
+    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-17 100
 
-# Install cuDNN 9.x for CUDA 12.8
+# Install cuDNN 9.x for CUDA 12.4
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libcudnn9-dev-cuda-12 \

@@ -9,14 +9,12 @@ import numpy as np
 import time
 import json
 import threading
-from typing import Dict, List, Optional, Tuple, Any, Callable
+from typing import Dict, List, Optional, Tuple, Callable
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import warnings
 
 try:
-    import sm120_ops
-    from python import sm120_keras_layers
 
     SM120_AVAILABLE = True
 except ImportError:
@@ -137,7 +135,7 @@ class SM120PerformanceProfiler:
                     return 616.0
                 else:
                     return 500.0
-        except:
+        except Exception:
             return 1000.0  # Conservative default
 
     def _check_tensor_core_support(self) -> bool:
@@ -148,7 +146,7 @@ class SM120PerformanceProfiler:
                 device_details = tf.config.experimental.get_device_details(gpus[0])
                 compute_capability = device_details.get("compute_capability", (0, 0))
                 return compute_capability[0] >= 7  # Volta and newer
-        except:
+        except Exception:
             return False
         return False
 
@@ -426,16 +424,18 @@ class SM120PerformanceProfiler:
 
         # GPU Information
         if self._gpu_info:
-            print(f"\n🖥️  GPU Information:")
+            print("\n🖥️  GPU Information:")
             print(f"   Device: {self._gpu_info.get('name', 'Unknown')}")
             print(
                 f"   Compute Capability: {self._gpu_info.get('compute_capability', 'Unknown')}"
             )
             print(
-                f"   Peak Memory Bandwidth: {self._gpu_info.get('peak_memory_bandwidth', 0):.1f} GB/s"
+                f"   Peak Memory Bandwidth: "
+                f"{self._gpu_info.get('peak_memory_bandwidth', 0):.1f} GB/s"
             )
             print(
-                f"   Tensor Core Support: {'Yes' if self._gpu_info.get('tensor_core_support') else 'No'}"
+                f"   Tensor Core Support: "
+                f"{'Yes' if self._gpu_info.get('tensor_core_support') else 'No'}"
             )
 
         # Kernel Performance Rankings
@@ -466,7 +466,8 @@ class SM120PerformanceProfiler:
 
         print(f"\n📊 Top {min(top_k, len(kernel_stats))} Kernel Performance:")
         print(
-            f"{'Rank':<4} {'Kernel Name':<25} {'Avg Time':<12} {'Bandwidth':<12} {'Efficiency':<12} {'Calls':<8}"
+            f"{'Rank':<4} {'Kernel Name':<25} {'Avg Time':<12} "
+            f"{'Bandwidth':<12} {'Efficiency':<12} {'Calls':<8}"
         )
         print("-" * 80)
 
@@ -478,7 +479,7 @@ class SM120PerformanceProfiler:
             )
 
         # Performance Insights
-        print(f"\n💡 Performance Insights:")
+        print("\n💡 Performance Insights:")
 
         # Find bottlenecks
         slow_kernels = [s for s in kernel_stats if s["avg_time"] > 1.0]
@@ -491,7 +492,8 @@ class SM120PerformanceProfiler:
         memory_bound = [s for s in kernel_stats if s["avg_efficiency"] < 50]
         if memory_bound:
             print(
-                f"   💾 Memory-bound ops (<50% efficiency): {', '.join([k['name'] for k in memory_bound[:3]])}"
+                f"   💾 Memory-bound ops (<50% efficiency): "
+                f"{', '.join([k['name'] for k in memory_bound[:3]])}"
             )
 
         # Show optimization hints
@@ -515,7 +517,8 @@ class SM120PerformanceProfiler:
         total_kernels = len(self._metrics_history)
         if total_kernels > 0:
             print(
-                f"   🔢 FP16 utilization: {fp16_usage}/{total_kernels} kernels ({fp16_usage/total_kernels*100:.1f}%)"
+                f"   🔢 FP16 utilization: {fp16_usage}/{total_kernels} kernels "
+                f"({fp16_usage/total_kernels*100:.1f}%)"
             )
 
         print("=" * 80)
@@ -666,7 +669,7 @@ def benchmark_operation(
     for i in range(num_iterations):
         with measure_performance(f"{operation_name}_benchmark"):
             start = time.perf_counter()
-            result = operation_func(*args)
+            _ = operation_func(*args)
             end = time.perf_counter()
             times.append((end - start) * 1000)
 

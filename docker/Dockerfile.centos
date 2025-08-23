@@ -109,7 +109,7 @@ RUN mkdir -p /usr/local/cuda/lib64 && \
     mkdir -p /usr/local/cuda/include && \
     echo "#!/bin/bash" > /tmp/install-cudnn.sh && \
     echo "# Manual cuDNN installation required for CentOS" >> /tmp/install-cudnn.sh && \
-    echo "# Download cuDNN 9.x for CUDA 12.8 from NVIDIA Developer" >> /tmp/install-cudnn.sh && \
+    echo "# Download cuDNN 9.x for CUDA 12.4 from NVIDIA Developer" >> /tmp/install-cudnn.sh && \
     echo "# Extract and copy files to /usr/local/cuda/" >> /tmp/install-cudnn.sh && \
     echo "# Example: tar -xf cudnn-*.tar.xz && cp -r cuda/* /usr/local/cuda/" >> /tmp/install-cudnn.sh && \
     chmod +x /tmp/install-cudnn.sh

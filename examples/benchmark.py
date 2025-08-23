@@ -12,7 +12,7 @@ import time
 import json
 import argparse
 from datetime import datetime
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Tuple, Any
 import numpy as np
 
 try:
@@ -131,7 +131,8 @@ class BenchmarkSuite:
                 kernel_size = config["kernel_size"]
 
                 print(
-                    f"  Config {i+1}: {batch_size}x{input_shape[0]}x{input_shape[1]}x{input_shape[2]} -> {filters} filters"
+                    f"  Config {i+1}: {batch_size}x{input_shape[0]}x{input_shape[1]}"
+                    f"x{input_shape[2]} -> {filters} filters"
                 )
 
                 # Create input tensor
@@ -154,7 +155,10 @@ class BenchmarkSuite:
                     output_elements / avg_time / 1e6
                 )  # Million elements per second
 
-                config_name = f"conv2d_b{batch_size}_h{input_shape[0]}_w{input_shape[1]}_c{input_shape[2]}_f{filters}"
+                config_name = (
+                    f"conv2d_b{batch_size}_h{input_shape[0]}_w{input_shape[1]}"
+                    f"_c{input_shape[2]}_f{filters}"
+                )
                 results[config_name] = {
                     "config": config,
                     "input_shape": x.shape.as_list(),
@@ -259,7 +263,8 @@ class BenchmarkSuite:
                     elif op_name == "min":
                         op_fn = tf.reduce_min
                     elif op_name == "std":
-                        op_fn = lambda x: tf.math.reduce_std(x)
+                        def op_fn(x):
+                            return tf.math.reduce_std(x)
 
                     avg_time, _ = self._time_operation(op_fn, x)
                     throughput = (
@@ -280,7 +285,8 @@ class BenchmarkSuite:
                 }
 
                 print(
-                    f"    Avg time per operation: {np.mean([r['time_ms'] for r in shape_results.values()]):.2f}ms"
+                    f"    Avg time per operation: "
+                    f"{np.mean([r['time_ms'] for r in shape_results.values()]):.2f}ms"
                 )
 
         return results

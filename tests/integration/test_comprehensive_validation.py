@@ -11,7 +11,7 @@ import time
 import gc
 import sys
 import os
-from typing import List, Dict, Tuple, Any
+
 import warnings
 
 # Add parent directory to path for imports
@@ -24,7 +24,6 @@ try:
         SM120Dense,
         SM120Conv2D,
         SM120MultiHeadAttention,
-        SM120BatchNormalization,
         create_sm120_transformer_encoder,
     )
     from python import sm120_ops
@@ -32,13 +31,13 @@ try:
         enable_profiling,
         print_performance_summary,
         get_average_metrics,
-        benchmark_operation,
+
     )
     from python.sm120_datatype_manager import (
         enable_mixed_precision,
         auto_cast,
         get_supported_types,
-        recommend_model_dtypes,
+
         print_type_summary,
     )
 
@@ -446,7 +445,7 @@ class TestPerformanceValidation:
         # Benchmark
         start_time = time.perf_counter()
         for _ in range(10):
-            output = model(input_data)
+            _ = model(input_data)
         mixed_precision_time = time.perf_counter() - start_time
 
         # Disable mixed precision for comparison
@@ -464,7 +463,7 @@ class TestPerformanceValidation:
 
         start_time = time.perf_counter()
         for _ in range(10):
-            output = model_fp32(input_data_fp32)
+            _ = model_fp32(input_data_fp32)
         fp32_time = time.perf_counter() - start_time
 
         speedup = fp32_time / mixed_precision_time
@@ -506,7 +505,7 @@ class TestPerformanceValidation:
 
         # Forward pass with memory monitoring
         try:
-            output = attention_layer(input_data)
+            _ = attention_layer(input_data)
             memory_efficient = True
             print("✅ Memory efficient attention completed")
         except tf.errors.ResourceExhaustedError:
@@ -522,10 +521,10 @@ class TestPerformanceValidation:
             )
 
             try:
-                output_standard = standard_attention(input_data, input_data)
-                standard_memory_ok = True
+                _ = standard_attention(input_data, input_data)  # output_standard"
+                _ = True  # standard_memory_ok
             except tf.errors.ResourceExhaustedError:
-                standard_memory_ok = False
+                _ = False  # standard_memory_ok
                 print("Standard attention ran out of memory - SM120 is more efficient")
 
         assert memory_efficient, "SM120 Flash Attention should handle large sequences"
@@ -675,7 +674,7 @@ class TestComprehensiveIntegration:
         input_data = tf.random.normal((64, 512))
 
         for _ in range(10):
-            output = layer(input_data)
+            _ = layer(input_data)
 
         # Check metrics were collected
         metrics = get_average_metrics("sm120_dense")

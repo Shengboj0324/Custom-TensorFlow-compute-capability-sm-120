@@ -13,12 +13,9 @@ Features:
 """
 
 import tensorflow as tf
-from tensorflow.python.framework import load_library
-from tensorflow.python.framework import ops
-from tensorflow.python.ops import array_ops
-from tensorflow.python.ops import math_ops
+
 from tensorflow.python.platform import resource_loader
-import os
+
 import numpy as np
 from typing import Optional, Union, List, Tuple, Dict, Any
 import warnings
@@ -466,7 +463,7 @@ def benchmark_operation(
     times = []
     for _ in range(num_iterations):
         start_time = tf.timestamp()
-        result = operation_fn(*args, **kwargs)
+        _ = operation_fn(*args, **kwargs)
         end_time = tf.timestamp()
         times.append(end_time - start_time)
 
