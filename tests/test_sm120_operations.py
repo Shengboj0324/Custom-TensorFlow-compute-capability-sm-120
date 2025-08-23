@@ -9,7 +9,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 import time
-from typing import List, Tuple, Dict, Any
+from typing import Tuple
 import warnings
 
 # Import SM120 operations
@@ -600,9 +600,10 @@ if __name__ == "__main__":
     if SM120_AVAILABLE:
         device_info = sm120_ops.get_sm120_device_info()
         print(f"SM120 Available: {device_info['available']}")
-        print(
-            f"Compatible devices: {len([d for d in device_info['devices'] if d.get('sm120_compatible', False)])}"
-        )
+        compatible_devices = [
+            d for d in device_info["devices"] if d.get("sm120_compatible", False)
+        ]
+        print(f"Compatible devices: {len(compatible_devices)}")
 
         for device in device_info["devices"]:
             if device.get("sm120_compatible", False):
