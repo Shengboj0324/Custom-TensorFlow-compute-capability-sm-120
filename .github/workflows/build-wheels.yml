@@ -80,19 +80,40 @@ jobs:
     name: Build Ubuntu Wheels
     needs: setup-and-validate
     if: needs.setup-and-validate.outputs.should_build == 'true'
+    timeout-minutes: 120  # 2 hour timeout per job
     strategy:
       fail-fast: false
+      max-parallel: 8  # Limit concurrent jobs to avoid resource exhaustion
       matrix:
-        os: ${{ fromJson(needs.setup-and-validate.outputs.platforms) }}
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        cuda-arch: ["sm_75", "sm_80", "sm_86", "sm_89", "sm_90", "sm_120"]
-        exclude:
-          # Exclude older Python versions on newer OS
+        include:
+          # Primary builds for sm_120 (our main target)
           - os: ubuntu-22.04
+            python-version: "3.11"
+            cuda-arch: "sm_120"
+          - os: ubuntu-22.04
+            python-version: "3.12"
+            cuda-arch: "sm_120"
+          # Compatibility builds for other architectures
+          - os: ubuntu-22.04
+            python-version: "3.11"
+            cuda-arch: "sm_90"
+          - os: ubuntu-22.04
+            python-version: "3.11"
+            cuda-arch: "sm_86"
+          # Different Python versions for main target
+          - os: ubuntu-20.04
             python-version: "3.9"
-          # Skip Windows for non-release builds initially
-          - os: windows-2022
-            python-version: "3.9"
+            cuda-arch: "sm_120"
+          - os: ubuntu-22.04
+            python-version: "3.10"
+            cuda-arch: "sm_120"
+          - os: ubuntu-22.04
+            python-version: "3.13"
+            cuda-arch: "sm_120"
+          # Legacy architecture support
+          - os: ubuntu-20.04
+            python-version: "3.11"
+            cuda-arch: "sm_75"
     
     runs-on: ${{ matrix.os }}
     
@@ -118,11 +139,26 @@ jobs:
     - name: Install cuDNN
       if: runner.os == 'Linux'
       run: |
-        wget -q https://developer.download.nvidia.com/compute/cudnn/9.7.0/local_installers/12.6/cudnn-local-repo-ubuntu2204-9.7.0_1.0-1_amd64.deb
-        sudo dpkg -i cudnn-local-repo-ubuntu2204-9.7.0_1.0-1_amd64.deb
-        sudo cp /var/cudnn-local-repo-ubuntu2204-9.7.0/cudnn-*-keyring.gpg /usr/share/keyrings/
-        sudo apt-get update
-        sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12
+        # Use pip installation as more reliable alternative
+        python -m pip install nvidia-cudnn-cu12
+        
+        # Alternative: Try direct package installation
+        # Ubuntu 20.04/22.04 compatible approach
+        if [ -f /etc/lsb-release ]; then
+          UBUNTU_VERSION=$(lsb_release -rs | cut -d. -f1-2 | tr -d .)
+          if [ "$UBUNTU_VERSION" = "2204" ]; then
+            CUDNN_URL="https://developer.download.nvidia.com/compute/cudnn/9.7.0/local_installers/12.6/cudnn-local-repo-ubuntu2204-9.7.0_1.0-1_amd64.deb"
+          else
+            CUDNN_URL="https://developer.download.nvidia.com/compute/cudnn/9.7.0/local_installers/12.6/cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb"
+          fi
+          
+          if wget -q --spider "$CUDNN_URL" 2>/dev/null; then
+            wget -q "$CUDNN_URL" -O cudnn-local-repo.deb
+            sudo dpkg -i cudnn-local-repo.deb || true
+            sudo apt-get update || true
+            sudo apt-get install -y libcudnn9-dev libcudnn9-cuda-12 || echo "Package installation failed, using pip version"
+          fi
+        fi
     
     - name: Setup LLVM
       if: runner.os == 'Linux'
@@ -135,7 +171,7 @@ jobs:
         sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ env.LLVM_VERSION }} 100
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
     
@@ -153,7 +189,7 @@ jobs:
         sudo mv bazel /usr/local/bin/
     
     - name: Cache TensorFlow Source
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: tensorflow
         key: tensorflow-src-${{ runner.os }}-${{ hashFiles('scripts/build-tensorflow.sh') }}
@@ -161,7 +197,7 @@ jobs:
           tensorflow-src-${{ runner.os }}-
     
     - name: Cache Bazel
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/bazel
         key: bazel-${{ runner.os }}-${{ matrix.python-version }}-${{ matrix.cuda-arch }}-${{ hashFiles('**/*.BUILD', '**/*.bzl') }}
@@ -176,10 +212,33 @@ jobs:
         CC: clang-${{ env.LLVM_VERSION }}
         CXX: clang++-${{ env.LLVM_VERSION }}
       run: |
+        set -x  # Enable debug output
+        
+        echo "🔧 Setting up build environment..."
         export PYTHON_BIN_PATH=$(which python)
         export BUILD_JOBS=$(nproc)
+        
+        echo "📋 Build Configuration:"
+        echo "  Python: $PYTHON_BIN_PATH"
+        echo "  Jobs: $BUILD_JOBS"
+        echo "  CUDA Arch: ${{ matrix.cuda-arch }}"
+        echo "  CC: $CC"
+        echo "  CXX: $CXX"
+        
+        # Verify tools are available
+        python --version
+        $CC --version
+        nvcc --version || echo "⚠️ nvcc not found"
+        
+        # Make build script executable and run
         chmod +x scripts/comprehensive-build.sh
-        ./scripts/comprehensive-build.sh
+        
+        echo "🚀 Starting TensorFlow build..."
+        ./scripts/comprehensive-build.sh || {
+          echo "❌ Build failed. Checking for partial artifacts..."
+          ls -la build/ || echo "No build directory found"
+          exit 1
+        }
     
     - name: Run Unit Tests
       run: |
@@ -193,14 +252,14 @@ jobs:
         python examples/comprehensive_sm120_example.py --benchmark-mode
     
     - name: Upload Wheel Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.cuda-arch }}
         path: build/tensorflow_sm120-*.whl
         retention-days: 30
     
     - name: Upload Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}-${{ matrix.cuda-arch }}
@@ -217,10 +276,19 @@ jobs:
     name: Build Docker Images
     needs: setup-and-validate
     if: needs.setup-and-validate.outputs.should_build == 'true'
+    timeout-minutes: 90  # 1.5 hour timeout for Docker builds
     strategy:
+      max-parallel: 4  # Limit concurrent Docker builds
       matrix:
-        base-image: ["ubuntu", "centos"]
-        cuda-arch: ["sm_120", "sm_89", "sm_86"]
+        include:
+          # Primary target: SM120 on both platforms
+          - base-image: "ubuntu"
+            cuda-arch: "sm_120"
+          - base-image: "centos"
+            cuda-arch: "sm_120"
+          # Compatibility builds
+          - base-image: "ubuntu"
+            cuda-arch: "sm_86"
     
     runs-on: ubuntu-latest
     
@@ -229,11 +297,11 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
     
     - name: Login to Container Registry
       if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -258,7 +326,7 @@ jobs:
           cp /workspace/build/*.whl /output/
     
     - name: Upload Docker Wheel Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: docker-wheels-${{ matrix.base-image }}-${{ matrix.cuda-arch }}
         path: docker-wheels/*.whl
@@ -282,12 +350,12 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
     
     - name: Download Built Wheels
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: wheels-ubuntu-22.04-py3.11-sm_120
         path: wheels/
@@ -315,7 +383,7 @@ jobs:
         esac
     
     - name: Upload Integration Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: integration-results-${{ matrix.test-suite }}
@@ -336,7 +404,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
     
@@ -368,7 +436,7 @@ jobs:
         find src/ -name "*.cc" -o -name "*.cu" -o -name "*.h" | xargs cppcheck --enable=all --xml 2> cppcheck-report.xml
     
     - name: Upload Quality Reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: quality-reports
@@ -392,7 +460,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: Download All Artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: artifacts/
     
@@ -438,7 +506,7 @@ jobs:
         EOF
     
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: release/*
         body_path: release/RELEASE_NOTES.md
@@ -462,12 +530,12 @@ jobs:
     
     steps:
     - name: Download Release Assets
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: dist/
     
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
     
@@ -499,13 +567,13 @@ jobs:
     
     steps:
     - name: Clean up old artifacts
-      uses: geekyeggo/delete-artifact@v2
+      uses: geekyeggo/delete-artifact@v5
       with:
         name: |
           wheels-*
           docker-wheels-*
           test-results-*
-        skipIfNotFound: true
+        useGlob: true
         failOnError: false
     
     - name: Notify on Success
