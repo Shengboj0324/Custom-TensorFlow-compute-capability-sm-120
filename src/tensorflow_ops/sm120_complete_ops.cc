@@ -11,8 +11,23 @@
 #include "sm120_kernel_launcher.h"
 #include "sm120_primitives.cu"
 #include "sm120_error_handling.h"
+#include <cstdlib>
 
 namespace tensorflow {
+
+// Security: Check if ops should fallback in training mode when gradients are not implemented
+inline bool sm120_safe_training_mode() {
+    static bool checked = false;
+    static bool enabled = false;
+    
+    if (!checked) {
+        const char* env_var = std::getenv("SM120_SAFE_TRAINING");
+        enabled = (env_var == nullptr || std::string(env_var) != "0"); // Default to safe mode
+        checked = true;
+    }
+    
+    return enabled;
+}
 
 // ============================================================================
 // BATCH NORMALIZATION - Complete Implementation

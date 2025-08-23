@@ -77,13 +77,49 @@ check_prerequisites() {
     
     # Check Python environment
     if [[ -z "$VIRTUAL_ENV" ]]; then
-        log_warning "No virtual environment detected. Activating tf-build-env..."
-        source "${BUILD_DIR}/../tf-build-env/bin/activate" || source "./tf-build-env/bin/activate" || {
-            log_error "Failed to activate virtual environment. Please run setup-environment.sh first."
-            exit 1
-        }
+        log_warning "No virtual environment detected. Attempting to activate tf-build-env..."
+        
+        # Try multiple possible locations for the virtual environment
+        venv_paths=(
+            "${BUILD_DIR}/../tf-build-env/bin/activate"
+            "./tf-build-env/bin/activate"
+            "../tf-build-env/bin/activate"
+            "$HOME/tf-build-env/bin/activate"
+        )
+        
+        venv_activated=false
+        for venv_path in "${venv_paths[@]}"; do
+            if [[ -f "$venv_path" ]]; then
+                log_info "Found virtual environment at: $venv_path"
+                source "$venv_path" && {
+                    venv_activated=true
+                    break
+                }
+            fi
+        done
+        
+        if [[ "$venv_activated" == "false" ]]; then
+            # In CI environments, try to use the system Python if available
+            if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+                log_warning "Virtual environment not found in CI - using system Python"
+                # Verify Python is available
+                if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
+                    log_error "No Python interpreter found"
+                    exit 1
+                fi
+            else
+                log_error "Failed to activate virtual environment. Please run setup-environment.sh first."
+                exit 1
+            fi
+        fi
     fi
-    log_success "Python environment: $VIRTUAL_ENV"
+    
+    # Log the Python environment being used
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        log_success "Python environment: $VIRTUAL_ENV"
+    else
+        log_success "Python environment: system Python ($(which python3 || which python))"
+    fi
 }
 
 # Clone TensorFlow repository

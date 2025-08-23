@@ -30,40 +30,85 @@ if sys.version_info < (3, 9):
 # Check for CUDA
 def check_cuda():
     """Check if CUDA is available and get version."""
-    try:
-        result = subprocess.run(['nvcc', '--version'], 
-                              capture_output=True, text=True, check=True)
-        output = result.stdout
-        
-        # Extract CUDA version
-        for line in output.split('\n'):
-            if 'release' in line:
-                version_str = line.split('release ')[1].split(',')[0]
-                major, minor = map(int, version_str.split('.'))
-                if major >= 12 and minor >= 8:
-                    return True, f"{major}.{minor}"
-                else:
-                    print(f"Warning: CUDA {version_str} found, but 12.8+ required")
-                    return False, version_str
-        
-        return False, "unknown"
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False, "not found"
+    # Security: Use absolute paths and validate CUDA_HOME
+    nvcc_paths = [
+        '/usr/local/cuda/bin/nvcc',
+        '/usr/local/cuda-12.8/bin/nvcc',
+        '/usr/local/cuda-12/bin/nvcc',
+    ]
+    
+    # Add CUDA_HOME path if it exists and is valid
+    cuda_home = os.environ.get('CUDA_HOME')
+    if cuda_home and os.path.isdir(cuda_home):
+        # Validate CUDA_HOME to prevent path injection
+        if os.path.abspath(cuda_home).startswith(('/usr/local/', '/opt/', '/usr/')):
+            nvcc_paths.insert(0, os.path.join(cuda_home, 'bin', 'nvcc'))
+    
+    # Try nvcc from PATH as fallback (less secure but sometimes necessary)
+    import shutil
+    nvcc_in_path = shutil.which('nvcc')
+    if nvcc_in_path:
+        nvcc_paths.append(nvcc_in_path)
+    
+    for nvcc_path in nvcc_paths:
+        try:
+            if not os.path.isfile(nvcc_path):
+                continue
+                
+            result = subprocess.run([nvcc_path, '--version'], 
+                                  capture_output=True, text=True, check=True, timeout=10)
+            output = result.stdout
+            
+            # Extract CUDA version
+            for line in output.split('\n'):
+                if 'release' in line:
+                    version_str = line.split('release ')[1].split(',')[0]
+                    major, minor = map(int, version_str.split('.'))
+                    if major >= 12 and minor >= 8:
+                        return True, f"{major}.{minor}"
+                    else:
+                        print(f"Warning: CUDA {version_str} found, but 12.8+ required")
+                        return False, version_str
+            
+            return False, "unknown"
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, ValueError):
+            continue
+    
+    return False, "not found"
 
 # Check for RTX 50-series GPU
 def check_sm120_gpu():
     """Check if RTX 50-series GPU is available."""
-    try:
-        result = subprocess.run(['nvidia-smi', '--query-gpu=compute_cap', 
-                               '--format=csv,noheader,nounits'],
-                              capture_output=True, text=True, check=True)
-        
-        compute_caps = result.stdout.strip().split('\n')
-        has_sm120 = any('12.0' in cap for cap in compute_caps if cap.strip())
-        
-        return has_sm120, compute_caps
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False, []
+    # Security: Use absolute paths for nvidia-smi
+    nvidia_smi_paths = [
+        '/usr/bin/nvidia-smi',
+        '/usr/local/cuda/bin/nvidia-smi',
+        '/opt/nvidia/cuda/bin/nvidia-smi',
+    ]
+    
+    # Add PATH lookup as fallback
+    import shutil
+    nvidia_smi_in_path = shutil.which('nvidia-smi')
+    if nvidia_smi_in_path:
+        nvidia_smi_paths.append(nvidia_smi_in_path)
+    
+    for nvidia_smi_path in nvidia_smi_paths:
+        try:
+            if not os.path.isfile(nvidia_smi_path):
+                continue
+                
+            result = subprocess.run([nvidia_smi_path, '--query-gpu=compute_cap', 
+                                   '--format=csv,noheader,nounits'],
+                                  capture_output=True, text=True, check=True, timeout=15)
+            
+            compute_caps = result.stdout.strip().split('\n')
+            has_sm120 = any('12.0' in cap for cap in compute_caps if cap.strip())
+            
+            return has_sm120, compute_caps
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return False, []
 
 # Find TensorFlow
 def find_tensorflow():
@@ -256,6 +301,10 @@ setup(
     packages=find_packages(where='python'),
     package_dir={'': 'python'},
     include_package_data=True,
+    # Security: Explicitly specify package data to prevent unintended file inclusion
+    package_data={
+        'tensorflow_sm120': ['_sm120_ops.so', '_sm120_ops.dll', '_sm120_ops.dylib']
+    },
     
     # Extensions
     ext_modules=get_extensions(),

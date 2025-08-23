@@ -80,40 +80,20 @@ jobs:
     name: Build Ubuntu Wheels
     needs: setup-and-validate
     if: needs.setup-and-validate.outputs.should_build == 'true'
-    timeout-minutes: 120  # 2 hour timeout per job
+    timeout-minutes: 240  # 4 hour timeout for TensorFlow builds
     strategy:
       fail-fast: false
-      max-parallel: 8  # Limit concurrent jobs to avoid resource exhaustion
+      max-parallel: 2  # Only 2 concurrent jobs to avoid resource exhaustion
       matrix:
         include:
-          # Primary builds for sm_120 (our main target)
+          # PRIMARY: Main sm_120 target with Python 3.11 (most stable)
           - os: ubuntu-22.04
             python-version: "3.11"
             cuda-arch: "sm_120"
+          # SECONDARY: sm_120 with Python 3.12 for modern compatibility
           - os: ubuntu-22.04
             python-version: "3.12"
             cuda-arch: "sm_120"
-          # Compatibility builds for other architectures
-          - os: ubuntu-22.04
-            python-version: "3.11"
-            cuda-arch: "sm_90"
-          - os: ubuntu-22.04
-            python-version: "3.11"
-            cuda-arch: "sm_86"
-          # Different Python versions for main target
-          - os: ubuntu-20.04
-            python-version: "3.9"
-            cuda-arch: "sm_120"
-          - os: ubuntu-22.04
-            python-version: "3.10"
-            cuda-arch: "sm_120"
-          - os: ubuntu-22.04
-            python-version: "3.13"
-            cuda-arch: "sm_120"
-          # Legacy architecture support
-          - os: ubuntu-20.04
-            python-version: "3.11"
-            cuda-arch: "sm_75"
     
     runs-on: ${{ matrix.os }}
     
@@ -175,9 +155,20 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     
+    - name: Create Virtual Environment
+      run: |
+        # Create virtual environment expected by build scripts
+        python -m venv tf-build-env
+        source tf-build-env/bin/activate
+        python -m pip install --upgrade pip setuptools wheel
+        
+        # Export virtual environment info
+        echo "VIRTUAL_ENV=$(pwd)/tf-build-env" >> $GITHUB_ENV
+        echo "PATH=$(pwd)/tf-build-env/bin:$PATH" >> $GITHUB_ENV
+    
     - name: Install Python Dependencies
       run: |
-        python -m pip install --upgrade pip setuptools wheel
+        source tf-build-env/bin/activate
         pip install numpy==1.24.3 packaging requests six mock keras_preprocessing
         pip install pytest pytest-xdist pytest-cov
     
@@ -206,27 +197,37 @@ jobs:
           bazel-${{ runner.os }}-${{ matrix.python-version }}-
           bazel-${{ runner.os }}-
     
+    - name: Setup Build Environment Variables
+      run: |
+        # Set up all environment variables for TensorFlow build
+        echo "🔧 Setting up build environment variables..."
+        
+        # Python configuration
+        PYTHON_BIN_PATH=$(which python3 || which python)
+        PYTHON_LIB_PATH=$(python3 -c "import site; print(site.getsitepackages()[0])" 2>/dev/null || python -c "import site; print(site.getsitepackages()[0])")
+        BUILD_JOBS=$(nproc)
+        
+        # Export to GitHub environment
+        echo "PYTHON_BIN_PATH=$PYTHON_BIN_PATH" >> $GITHUB_ENV
+        echo "PYTHON_LIB_PATH=$PYTHON_LIB_PATH" >> $GITHUB_ENV  
+        echo "BUILD_JOBS=$BUILD_JOBS" >> $GITHUB_ENV
+        echo "TF_CUDA_COMPUTE_CAPABILITIES=${{ matrix.cuda-arch }}" >> $GITHUB_ENV
+        
+        # Verify configuration
+        echo "📋 Environment Configuration:"
+        echo "  Python Binary: $PYTHON_BIN_PATH"
+        echo "  Python Lib Path: $PYTHON_LIB_PATH"
+        echo "  Build Jobs: $BUILD_JOBS"
+        echo "  CUDA Arch: ${{ matrix.cuda-arch }}"
+    
     - name: Build SM120 TensorFlow
       env:
-        TF_CUDA_COMPUTE_CAPABILITIES: ${{ matrix.cuda-arch }}
         CC: clang-${{ env.LLVM_VERSION }}
         CXX: clang++-${{ env.LLVM_VERSION }}
       run: |
         set -x  # Enable debug output
         
-        echo "🔧 Setting up build environment..."
-        export PYTHON_BIN_PATH=$(which python)
-        export BUILD_JOBS=$(nproc)
-        
-        # Make variables available to subsequent steps
-        echo "PYTHON_BIN_PATH=$PYTHON_BIN_PATH" >> $GITHUB_ENV
-        echo "BUILD_JOBS=$BUILD_JOBS" >> $GITHUB_ENV
-        echo "PYTHON_LIB_PATH=$(python -c 'import site; print(site.getsitepackages()[0])')" >> $GITHUB_ENV
-        
-        echo "📋 Build Configuration:"
-        echo "  Python: $PYTHON_BIN_PATH"
-        echo "  Jobs: $BUILD_JOBS"
-        echo "  CUDA Arch: ${{ matrix.cuda-arch }}"
+        echo "🚀 Starting TensorFlow build with SM120 optimizations..."
         echo "  CC: $CC"
         echo "  CXX: $CXX"
         
@@ -281,19 +282,14 @@ jobs:
     name: Build Docker Images
     needs: setup-and-validate
     if: needs.setup-and-validate.outputs.should_build == 'true'
-    timeout-minutes: 90  # 1.5 hour timeout for Docker builds
+    timeout-minutes: 180  # 3 hour timeout for Docker builds  
     strategy:
-      max-parallel: 4  # Limit concurrent Docker builds
+      max-parallel: 1  # Only 1 Docker build at a time to save resources
       matrix:
         include:
-          # Primary target: SM120 on both platforms
+          # SINGLE: Primary Ubuntu Docker image for sm_120
           - base-image: "ubuntu"
             cuda-arch: "sm_120"
-          - base-image: "centos"
-            cuda-arch: "sm_120"
-          # Compatibility builds
-          - base-image: "ubuntu"
-            cuda-arch: "sm_86"
     
     runs-on: ubuntu-latest
     

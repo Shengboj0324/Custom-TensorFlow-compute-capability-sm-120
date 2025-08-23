@@ -88,8 +88,8 @@ validate_system() {
     
     # Relax requirements for CI environments
     if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
-        min_memory_gb=8
-        log_info "CI environment detected - using relaxed memory requirements"
+        min_memory_gb=4  # GitHub Actions runners have ~7GB, be very permissive
+        log_info "CI environment detected - using relaxed memory requirements (${min_memory_gb}GB minimum)"
     fi
     
     if [[ "$mem_gb" != "unknown" ]] && (( $(echo "$mem_gb < $min_memory_gb" | bc -l) )); then
@@ -109,8 +109,8 @@ validate_system() {
     
     # Relax requirements for CI environments  
     if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
-        min_disk_gb=20
-        log_info "CI environment detected - using relaxed disk space requirements"
+        min_disk_gb=10  # GitHub Actions runners have ~14GB, be very permissive
+        log_info "CI environment detected - using relaxed disk space requirements (${min_disk_gb}GB minimum)"
     fi
     
     if (( disk_gb < min_disk_gb )); then

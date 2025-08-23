@@ -13,6 +13,21 @@
 #include <memory>
 #include <unordered_map>
 #include <mutex>
+#include <cstdlib>
+
+// Security: Control verbose logging via environment variable to prevent information leakage
+inline bool sm120_verbose_logging_enabled() {
+    static bool checked = false;
+    static bool enabled = false;
+    
+    if (!checked) {
+        const char* env_var = std::getenv("SM120_VERBOSE_LOGGING");
+        enabled = (env_var != nullptr && std::string(env_var) == "1");
+        checked = true;
+    }
+    
+    return enabled;
+}
 
 // SM120 error checking macro with detailed diagnostics
 #define SM120_CUDA_CHECK(call) do { \
