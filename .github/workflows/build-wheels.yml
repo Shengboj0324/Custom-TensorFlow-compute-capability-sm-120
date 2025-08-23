@@ -127,8 +127,8 @@ jobs:
     - name: Setup LLVM
       if: runner.os == 'Linux'
       run: |
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{ env.LLVM_VERSION }} main" > /etc/apt/sources.list.d/llvm.list
+        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{ env.LLVM_VERSION }} main" | sudo tee /etc/apt/sources.list.d/llvm.list > /dev/null
         sudo apt-get update
         sudo apt-get install -y clang-${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }} lld-${{ env.LLVM_VERSION }}
         sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ env.LLVM_VERSION }} 100
@@ -173,11 +173,11 @@ jobs:
     - name: Build SM120 TensorFlow
       env:
         TF_CUDA_COMPUTE_CAPABILITIES: ${{ matrix.cuda-arch }}
-        PYTHON_BIN_PATH: ${{ which python }}
-        BUILD_JOBS: ${{ nproc }}
         CC: clang-${{ env.LLVM_VERSION }}
         CXX: clang++-${{ env.LLVM_VERSION }}
       run: |
+        export PYTHON_BIN_PATH=$(which python)
+        export BUILD_JOBS=$(nproc)
         chmod +x scripts/comprehensive-build.sh
         ./scripts/comprehensive-build.sh
     
