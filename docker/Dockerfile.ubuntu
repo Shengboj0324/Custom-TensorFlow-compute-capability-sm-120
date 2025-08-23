@@ -151,7 +151,7 @@ COPY patches/ /workspace/patches/
 RUN find /workspace -name "*.sh" -type f -exec chmod +x {} \;
 
 # Create optimized build script for container
-RUN cat > /workspace/build-tensorflow-optimized.sh << 'EOF'
+RUN cat > /workspace/build-tensorflow-optimized.sh <<EOF
 #!/bin/bash
 set -e
 
@@ -294,7 +294,7 @@ else
 fi
 
 # Generate build metadata
-cat > "\$BUILD_DIR/build-info.json" << 'BUILDINFO'
+cat > "\$BUILD_DIR/build-info.json" <<BUILDINFO
 {
     "build_date": "\$(date -Iseconds)",
     "tensorflow_version": "\$TENSORFLOW_VERSION",
@@ -330,7 +330,7 @@ EOF
 RUN chmod +x /workspace/build-tensorflow-optimized.sh
 
 # Create validation script
-RUN cat > /workspace/validate-build.sh << 'EOF'
+RUN cat > /workspace/validate-build.sh <<EOF
 #!/bin/bash
 set -e
 
@@ -373,7 +373,7 @@ RUN echo 'export MAKEFLAGS="-j$(nproc)"' >> /root/.bashrc && \
     echo 'export TMP=/tmp' >> /root/.bashrc
 
 # Create entrypoint script
-RUN cat > /workspace/entrypoint.sh << 'EOF'
+RUN cat > /workspace/entrypoint.sh <<EOF
 #!/bin/bash
 set -e
 

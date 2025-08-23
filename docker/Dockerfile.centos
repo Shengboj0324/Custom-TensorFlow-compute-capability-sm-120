@@ -144,7 +144,7 @@ COPY patches/ /workspace/patches/
 RUN find /workspace -name "*.sh" -type f -exec chmod +x {} \;
 
 # Create CentOS-specific build script
-RUN cat > /workspace/build-tensorflow-centos.sh << 'EOF'
+RUN cat > /workspace/build-tensorflow-centos.sh <<EOF
 #!/bin/bash
 set -e
 
