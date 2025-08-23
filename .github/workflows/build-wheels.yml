@@ -83,16 +83,12 @@ jobs:
     timeout-minutes: 240  # 4 hour timeout for TensorFlow builds
     strategy:
       fail-fast: false
-      max-parallel: 2  # Only 2 concurrent jobs to avoid resource exhaustion
+      max-parallel: 1  # Single job to avoid resource exhaustion
       matrix:
         include:
           # PRIMARY: Main sm_120 target with Python 3.11 (most stable)
           - os: ubuntu-22.04
             python-version: "3.11"
-            cuda-arch: "sm_120"
-          # SECONDARY: sm_120 with Python 3.12 for modern compatibility
-          - os: ubuntu-22.04
-            python-version: "3.12"
             cuda-arch: "sm_120"
     
     runs-on: ${{ matrix.os }}

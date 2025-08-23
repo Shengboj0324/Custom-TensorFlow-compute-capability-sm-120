@@ -35,7 +35,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 
 # Find required packages
-find_package(CUDA 12.8 REQUIRED)
+find_package(CUDA 12.4 REQUIRED)
 find_package(PkgConfig REQUIRED)
 
 # CUDA architecture settings for sm_120
@@ -108,7 +108,7 @@ find_path(CUDNN_INCLUDE_DIR cudnn.h
           /usr/local/include)
 
 if(NOT CUDNN_INCLUDE_DIR)
-    message(FATAL_ERROR "cuDNN headers not found. Please install cuDNN 9.x for CUDA 12.8+")
+    message(FATAL_ERROR "cuDNN headers not found. Please install cuDNN 9.x for CUDA 12.4+")
 endif()
 
 # Include directories

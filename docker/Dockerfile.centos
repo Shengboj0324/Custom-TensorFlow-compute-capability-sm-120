@@ -1,7 +1,7 @@
 # TensorFlow sm_120 Build Environment - CentOS Stream 9
 # Alternative build environment for RTX 50-series GPU support
 
-FROM nvidia/cuda:12.8-devel-ubi9
+FROM nvidia/cuda:12.4.0-devel-ubi9
 
 # Metadata
 LABEL maintainer="TensorFlow sm_120 Build Team"
@@ -31,7 +31,7 @@ ENV TF_NEED_OPENCL_SYCL=0
 ENV TF_NEED_ROCM=0
 ENV TF_NEED_CUDA=1
 ENV TF_NEED_TENSORRT=0
-ENV TF_CUDA_VERSION=12.8
+ENV TF_CUDA_VERSION=12.4
 ENV TF_CUDNN_VERSION=9
 ENV TF_CUDA_COMPUTE_CAPABILITIES=12.0
 ENV TF_SET_ANDROID_WORKSPACE=0

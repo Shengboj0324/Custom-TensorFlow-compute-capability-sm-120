@@ -52,7 +52,7 @@ check_docker() {
 
 # Check NVIDIA Docker runtime
 check_nvidia_docker() {
-    if ! docker run --rm --gpus all nvidia/cuda:12.8-devel-ubuntu22.04 nvidia-smi &> /dev/null; then
+    if ! docker run --rm --gpus all nvidia/cuda:12.4.0-devel-ubuntu22.04 nvidia-smi &> /dev/null; then
         log_error "NVIDIA Docker runtime is not properly configured."
         log_info "Please install nvidia-container-toolkit:"
         log_info "  https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
@@ -68,7 +68,7 @@ build_docker_image() {
     
     # Create temporary Dockerfile
     cat > Dockerfile.tf-sm120 << 'EOF'
-FROM nvidia/cuda:12.8-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -322,7 +322,7 @@ generate_instructions() {
 ## System Requirements
 - NVIDIA RTX 50-series GPU (5080/5090)
 - NVIDIA drivers 570.x or newer
-- CUDA 12.8+ runtime libraries
+- CUDA 12.4+ runtime libraries
 - cuDNN 9.x runtime libraries
 
 ## Troubleshooting
@@ -331,7 +331,7 @@ generate_instructions() {
 - For performance issues, verify that TensorFlow is actually using the GPU with \`tf.config.list_physical_devices('GPU')\`
 
 Built on: $(date)
-Build environment: Docker container with CUDA 12.8, cuDNN 9.x, LLVM 22
+Build environment: Docker container with CUDA 12.4, cuDNN 9.x, LLVM 22
 EOF
         
         log_success "Installation instructions saved to $BUILD_DIR/INSTALL.md"

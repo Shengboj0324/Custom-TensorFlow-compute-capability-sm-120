@@ -90,7 +90,7 @@ def find_executable_safely(name: str, env_paths: list = None) -> str:
     standard_locations = {
         "nvcc": [
             "/usr/local/cuda/bin/nvcc",
-            "/usr/local/cuda-12.8/bin/nvcc",
+            "/usr/local/cuda-12.4/bin/nvcc",
             "/usr/local/cuda-12/bin/nvcc",
             "/opt/cuda/bin/nvcc",
         ],
@@ -160,7 +160,11 @@ def check_cuda():
 
     try:
         result = subprocess.run(
-            [nvcc_path, "--version"], capture_output=True, text=True, check=True, timeout=10
+            [nvcc_path, "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
         )
         output = result.stdout
 
@@ -195,7 +199,11 @@ def check_sm120_gpu():
 
     try:
         result = subprocess.run(
-            [nvidia_smi_path, "--query-gpu=compute_cap", "--format=csv,noheader,nounits"],
+            [
+                nvidia_smi_path,
+                "--query-gpu=compute_cap",
+                "--format=csv,noheader,nounits",
+            ],
             capture_output=True,
             text=True,
             check=True,
@@ -206,7 +214,11 @@ def check_sm120_gpu():
         has_sm120 = any("12.0" in cap for cap in compute_caps if cap.strip())
 
         return has_sm120, compute_caps
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+    except (
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
         return False, []
 
 
@@ -256,9 +268,9 @@ def find_cuda_toolkit():
         # Try common installation paths
         common_paths = [
             "/usr/local/cuda",
-            "/usr/local/cuda-12.8",
+            "/usr/local/cuda-12.4",
             "/opt/cuda",
-            "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.8",
+            "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.4",
         ]
 
         for path in common_paths:
@@ -267,7 +279,9 @@ def find_cuda_toolkit():
                 break
 
     if not cuda_home or not os.path.exists(cuda_home):
-        raise RuntimeError("CUDA toolkit not found. Please set CUDA_HOME environment variable")
+        raise RuntimeError(
+            "CUDA toolkit not found. Please set CUDA_HOME environment variable"
+        )
 
     return {
         "home": cuda_home,
@@ -288,11 +302,13 @@ class SM120BuildExt(build_ext):
 
         cuda_available, cuda_version = check_cuda()
         if not cuda_available:
-            raise RuntimeError(f"CUDA 12.8+ required, found: {cuda_version}")
+            raise RuntimeError(f"CUDA 12.4+ required, found: {cuda_version}")
 
         sm120_available, compute_caps = check_sm120_gpu()
         if sm120_available:
-            print(f"✓ RTX 50-series GPU detected with compute capabilities: {compute_caps}")
+            print(
+                f"✓ RTX 50-series GPU detected with compute capabilities: {compute_caps}"
+            )
         else:
             print(f"⚠ No RTX 50-series GPU detected. Available: {compute_caps}")
             print("  Building with compatibility mode.")
@@ -416,7 +432,9 @@ setup(
     package_dir={"": "python"},
     include_package_data=True,
     # Security: Explicitly specify package data to prevent unintended file inclusion
-    package_data={"tensorflow_sm120": ["_sm120_ops.so", "_sm120_ops.dll", "_sm120_ops.dylib"]},
+    package_data={
+        "tensorflow_sm120": ["_sm120_ops.so", "_sm120_ops.dll", "_sm120_ops.dylib"]
+    },
     # Extensions
     ext_modules=get_extensions(),
     cmdclass={"build_ext": SM120BuildExt},

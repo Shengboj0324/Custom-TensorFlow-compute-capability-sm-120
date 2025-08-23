@@ -50,7 +50,9 @@ def log_header(message: str) -> None:
 
 
 class ValidationResult:
-    def __init__(self, name: str, passed: bool, message: str, details: Optional[Dict] = None):
+    def __init__(
+        self, name: str, passed: bool, message: str, details: Optional[Dict] = None
+    ):
         self.name = name
         self.passed = passed
         self.message = message
@@ -81,14 +83,22 @@ class TensorFlowValidator:
                 "Python Version",
                 True,
                 f"Python {version_str} is supported",
-                {"version": version_str, "major": version_info.major, "minor": version_info.minor},
+                {
+                    "version": version_str,
+                    "major": version_info.major,
+                    "minor": version_info.minor,
+                },
             )
         else:
             return ValidationResult(
                 "Python Version",
                 False,
                 f"Python {version_str} is not supported (requires 3.9-3.13)",
-                {"version": version_str, "major": version_info.major, "minor": version_info.minor},
+                {
+                    "version": version_str,
+                    "major": version_info.major,
+                    "minor": version_info.minor,
+                },
             )
 
     def check_tensorflow_import(self) -> ValidationResult:
@@ -118,7 +128,10 @@ class TensorFlowValidator:
         """Check if CUDA is available to TensorFlow."""
         if not self.tf_available:
             return ValidationResult(
-                "CUDA Availability", False, "Cannot check CUDA (TensorFlow not available)", {}
+                "CUDA Availability",
+                False,
+                "Cannot check CUDA (TensorFlow not available)",
+                {},
             )
 
         try:
@@ -139,14 +152,20 @@ class TensorFlowValidator:
                 )
         except Exception as e:
             return ValidationResult(
-                "CUDA Support", False, f"Error checking CUDA support: {str(e)}", {"error": str(e)}
+                "CUDA Support",
+                False,
+                f"Error checking CUDA support: {str(e)}",
+                {"error": str(e)},
             )
 
     def check_gpu_devices(self) -> ValidationResult:
         """Check for available GPU devices."""
         if not self.tf_available:
             return ValidationResult(
-                "GPU Devices", False, "Cannot check GPU devices (TensorFlow not available)", {}
+                "GPU Devices",
+                False,
+                "Cannot check GPU devices (TensorFlow not available)",
+                {},
             )
 
         try:
@@ -155,7 +174,9 @@ class TensorFlowValidator:
                 gpu_info = []
                 for i, gpu in enumerate(gpus):
                     try:
-                        details = self.tf_module.config.experimental.get_device_details(gpu)
+                        details = self.tf_module.config.experimental.get_device_details(
+                            gpu
+                        )
                         gpu_info.append(
                             {
                                 "index": i,
@@ -181,10 +202,15 @@ class TensorFlowValidator:
                     {"count": len(gpus), "devices": gpu_info},
                 )
             else:
-                return ValidationResult("GPU Devices", False, "No GPU devices found", {"count": 0})
+                return ValidationResult(
+                    "GPU Devices", False, "No GPU devices found", {"count": 0}
+                )
         except Exception as e:
             return ValidationResult(
-                "GPU Devices", False, f"Error checking GPU devices: {str(e)}", {"error": str(e)}
+                "GPU Devices",
+                False,
+                f"Error checking GPU devices: {str(e)}",
+                {"error": str(e)},
             )
 
     def check_compute_capability(self) -> ValidationResult:
@@ -201,7 +227,10 @@ class TensorFlowValidator:
             gpus = self.tf_module.config.list_physical_devices("GPU")
             if not gpus:
                 return ValidationResult(
-                    "Compute Capability sm_120", False, "No GPU devices available to check", {}
+                    "Compute Capability sm_120",
+                    False,
+                    "No GPU devices available to check",
+                    {},
                 )
 
             sm120_found = False
@@ -211,9 +240,13 @@ class TensorFlowValidator:
                 try:
                     details = self.tf_module.config.experimental.get_device_details(gpu)
                     compute_cap = details.get("compute_capability")
-                    capabilities.append({"device": gpu.name, "compute_capability": compute_cap})
+                    capabilities.append(
+                        {"device": gpu.name, "compute_capability": compute_cap}
+                    )
 
-                    if compute_cap and (compute_cap == (12, 0) or compute_cap == "12.0"):
+                    if compute_cap and (
+                        compute_cap == (12, 0) or compute_cap == "12.0"
+                    ):
                         sm120_found = True
                 except Exception as e:
                     capabilities.append({"device": gpu.name, "error": str(e)})
@@ -263,7 +296,11 @@ class TensorFlowValidator:
                     if line.strip():
                         parts = [p.strip() for p in line.split(",")]
                         if len(parts) >= 3:
-                            name, compute_cap, driver_version = parts[0], parts[1], parts[2]
+                            name, compute_cap, driver_version = (
+                                parts[0],
+                                parts[1],
+                                parts[2],
+                            )
                             gpus.append(
                                 {
                                     "name": name,
@@ -421,7 +458,9 @@ class TensorFlowValidator:
                         print(f"        {key}: {value}")
 
         # GPU Information Summary
-        gpu_results = [r for r in self.results if "GPU" in r.name or "Compute Capability" in r.name]
+        gpu_results = [
+            r for r in self.results if "GPU" in r.name or "Compute Capability" in r.name
+        ]
         if any(r.passed for r in gpu_results):
             print(f"\n{Colors.WHITE}GPU Information Summary:{Colors.NC}")
 
@@ -480,7 +519,9 @@ class TensorFlowValidator:
                 print("    - Run 'nvidia-smi' to check GPU status")
 
             elif "Compute Capability" in result.name:
-                print("  Solution: This may be expected if you don't have RTX 50-series GPU")
+                print(
+                    "  Solution: This may be expected if you don't have RTX 50-series GPU"
+                )
                 print(
                     "    The custom build will still work on other GPUs with reduced optimization"
                 )
