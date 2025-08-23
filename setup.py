@@ -207,14 +207,10 @@ class SM120BuildExt(build_ext):
 def get_extensions():
     """Get list of extensions to build."""
     
-    # Source files
+    # Source files (include CUDA sources - nvcc handles .cu files)
     sources = [
         'src/python_bindings/sm120_python_ops.cc',
         'src/tensorflow_ops/sm120_ops_fixed.cc',
-    ]
-    
-    # CUDA sources (will be compiled separately)
-    cuda_sources = [
         'src/cuda_kernels/sm120_optimized_kernels_fixed.cu',
         'src/tensorflow_ops/sm120_kernel_implementations.cu',
     ]
@@ -259,6 +255,7 @@ setup(
     # Package configuration
     packages=find_packages(where='python'),
     package_dir={'': 'python'},
+    include_package_data=True,
     
     # Extensions
     ext_modules=get_extensions(),

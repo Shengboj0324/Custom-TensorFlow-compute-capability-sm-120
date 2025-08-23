@@ -50,9 +50,10 @@ log_error() {
 }
 
 log_header() {
-    echo -e "\n${WHITE}${'='*80}${NC}" | tee -a "$LOG_FILE"
+    local line=$(printf '=%.0s' {1..80})
+    echo -e "\n${WHITE}${line}${NC}" | tee -a "$LOG_FILE"
     echo -e "${WHITE}$(printf '%*s' $(((80-${#1})/2)) '')$1${NC}" | tee -a "$LOG_FILE"
-    echo -e "${WHITE}${'='*80}${NC}\n" | tee -a "$LOG_FILE"
+    echo -e "${WHITE}${line}${NC}\n" | tee -a "$LOG_FILE"
 }
 
 # Error handling
@@ -83,18 +84,42 @@ validate_system() {
     
     # Check memory
     local mem_gb=$(free -g 2>/dev/null | awk 'NR==2{printf "%.1f", $2}' || echo "unknown")
-    if [[ "$mem_gb" != "unknown" ]] && (( $(echo "$mem_gb < 16" | bc -l) )); then
-        log_error "Insufficient memory: ${mem_gb}GB (minimum 16GB required)"
-        exit 1
+    local min_memory_gb=16
+    
+    # Relax requirements for CI environments
+    if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+        min_memory_gb=8
+        log_info "CI environment detected - using relaxed memory requirements"
+    fi
+    
+    if [[ "$mem_gb" != "unknown" ]] && (( $(echo "$mem_gb < $min_memory_gb" | bc -l) )); then
+        if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+            log_warning "Low memory: ${mem_gb}GB (recommended ${min_memory_gb}GB+) - continuing in CI mode"
+        else
+            log_error "Insufficient memory: ${mem_gb}GB (minimum ${min_memory_gb}GB required)"
+            exit 1
+        fi
     else
         log_success "Memory: ${mem_gb}GB"
     fi
     
     # Check disk space
     local disk_gb=$(df -BG "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | sed 's/G//')
-    if (( disk_gb < 50 )); then
-        log_error "Insufficient disk space: ${disk_gb}GB free (minimum 50GB required)"
-        exit 1
+    local min_disk_gb=50
+    
+    # Relax requirements for CI environments  
+    if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+        min_disk_gb=20
+        log_info "CI environment detected - using relaxed disk space requirements"
+    fi
+    
+    if (( disk_gb < min_disk_gb )); then
+        if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+            log_warning "Low disk space: ${disk_gb}GB free (recommended ${min_disk_gb}GB+) - continuing in CI mode"
+        else
+            log_error "Insufficient disk space: ${disk_gb}GB free (minimum ${min_disk_gb}GB required)"
+            exit 1
+        fi
     else
         log_success "Disk space: ${disk_gb}GB free"
     fi

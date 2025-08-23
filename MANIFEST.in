@@ -1,0 +1,45 @@
+# MANIFEST.in for TensorFlow SM120 Package
+# Ensures all necessary files are included in the source distribution
+
+# Include all source files
+recursive-include src *.cc *.cu *.h *.hpp
+recursive-include python *.py
+
+# Include build files
+include CMakeLists.txt
+include setup.py
+include LICENSE
+include README.md
+include CHANGELOG.md
+
+# Include scripts and patches
+recursive-include scripts *.sh *.py
+recursive-include patches *.patch
+
+# Include documentation
+recursive-include docs *.md *.rst *.png *.jpg *.svg
+
+# Include examples and tests
+recursive-include examples *.py *.ipynb
+recursive-include tests *.py
+
+# Include Docker files
+recursive-include docker Dockerfile* *.yml *.yaml
+
+# Include GitHub workflows
+recursive-include .github *.yml *.yaml
+
+# Include built shared libraries (when present)
+recursive-include python *.so *.dll *.dylib
+
+# Exclude build artifacts and caches
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude __pycache__
+global-exclude .git*
+global-exclude *.o
+global-exclude *.obj
+global-exclude .DS_Store
+global-exclude build/
+global-exclude dist/
+global-exclude *.egg-info/

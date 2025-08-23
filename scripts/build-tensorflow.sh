@@ -18,6 +18,9 @@ BUILD_DIR="$(pwd)/build"
 PATCHES_DIR="$(pwd)/patches"
 JOBS=$(nproc)
 
+# Global variables (set during prerequisite checks)
+CUDA_VERSION=""
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -45,12 +48,12 @@ check_prerequisites() {
         exit 1
     fi
     
-    local cuda_version=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-    if ! (( $(echo "$cuda_version >= 12.8" | bc -l) )); then
-        log_error "CUDA $cuda_version found, but 12.8+ required"
+    CUDA_VERSION=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
+    if ! (( $(echo "$CUDA_VERSION >= 12.8" | bc -l) )); then
+        log_error "CUDA $CUDA_VERSION found, but 12.8+ required"
         exit 1
     fi
-    log_success "CUDA $cuda_version found"
+    log_success "CUDA $CUDA_VERSION found"
     
     # Check Clang
     if ! command -v clang &> /dev/null; then
@@ -75,7 +78,7 @@ check_prerequisites() {
     # Check Python environment
     if [[ -z "$VIRTUAL_ENV" ]]; then
         log_warning "No virtual environment detected. Activating tf-build-env..."
-        source tf-build-env/bin/activate || {
+        source "${BUILD_DIR}/../tf-build-env/bin/activate" || source "./tf-build-env/bin/activate" || {
             log_error "Failed to activate virtual environment. Please run setup-environment.sh first."
             exit 1
         }
@@ -143,7 +146,7 @@ configure_tensorflow() {
     export TF_NEED_ROCM=0
     export TF_NEED_CUDA=1
     export TF_NEED_TENSORRT=0
-    export TF_CUDA_VERSION=$cuda_version
+    export TF_CUDA_VERSION=$CUDA_VERSION
     export TF_CUDNN_VERSION=9
     export CUDA_TOOLKIT_PATH=/usr/local/cuda-12.8
     export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu

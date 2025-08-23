@@ -218,6 +218,11 @@ jobs:
         export PYTHON_BIN_PATH=$(which python)
         export BUILD_JOBS=$(nproc)
         
+        # Make variables available to subsequent steps
+        echo "PYTHON_BIN_PATH=$PYTHON_BIN_PATH" >> $GITHUB_ENV
+        echo "BUILD_JOBS=$BUILD_JOBS" >> $GITHUB_ENV
+        echo "PYTHON_LIB_PATH=$(python -c 'import site; print(site.getsitepackages()[0])')" >> $GITHUB_ENV
+        
         echo "📋 Build Configuration:"
         echo "  Python: $PYTHON_BIN_PATH"
         echo "  Jobs: $BUILD_JOBS"
