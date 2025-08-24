@@ -31,13 +31,11 @@ try:
         enable_profiling,
         print_performance_summary,
         get_average_metrics,
-
     )
     from python.sm120_datatype_manager import (
         enable_mixed_precision,
         auto_cast,
         get_supported_types,
-
         print_type_summary,
     )
 

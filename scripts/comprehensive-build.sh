@@ -141,33 +141,35 @@ validate_system() {
 validate_cuda() {
     log_header "CUDA Environment Validation"
     
-    # Check NVIDIA drivers
-    if command -v nvidia-smi &> /dev/null; then
-        local driver_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits | head -n1)
-        log_success "NVIDIA Driver: $driver_version"
-        
-        # Check for RTX 50-series
-        local gpu_info=$(nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader,nounits)
-        local has_sm120=false
-        
-        while IFS=, read -r name compute_cap; do
-            name=$(echo "$name" | xargs)
-            compute_cap=$(echo "$compute_cap" | xargs)
+    # Check for GPUs only if nvidia-smi works and returns data
+    local has_sm120=false
+    if command -v nvidia-smi >/dev/null; then
+        if nvidia-smi -L >/dev/null 2>&1; then
+            local driver_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits | head -n1)
+            log_success "NVIDIA Driver: $driver_version"
             
-            if [[ "$compute_cap" == "12.0" ]]; then
-                log_success "RTX 50-series GPU detected: $name (sm_120)"
-                has_sm120=true
-            else
-                log_info "GPU detected: $name (sm_$compute_cap)"
+            local gpu_info=$(nvidia-smi --query-gpu=name,compute_cap \
+                           --format=csv,noheader,nounits)
+            while IFS=, read -r name compute_cap; do
+                # Trim leading/trailing spaces without xargs
+                name=$(echo "$name" | sed 's/^ *//;s/ *$//')
+                compute_cap=$(echo "$compute_cap" | sed 's/^ *//;s/ *$//')
+                if [[ "$compute_cap" == "12.0" ]]; then
+                    log_success "RTX 50-series GPU detected: $name (sm_120)"
+                    has_sm120=true
+                else
+                    log_info "GPU detected: $name (sm_$compute_cap)"
+                fi
+            done <<<"$gpu_info"
+            
+            if [[ "$has_sm120" == false ]]; then
+                log_warning "No RTX 50-series GPU detected. Building with compatibility mode."
             fi
-        done <<< "$gpu_info"
-        
-        if [[ "$has_sm120" == false ]]; then
-            log_warning "No RTX 50-series GPU detected. Building with compatibility mode."
+        else
+            log_warning "nvidia-smi not available or no GPU found; building in compatibility mode."
         fi
     else
-        log_error "NVIDIA drivers not found. Please install NVIDIA drivers 570.x+"
-        exit 1
+        log_warning "nvidia-smi not installed; building in compatibility mode."
     fi
     
     # Check CUDA toolkit

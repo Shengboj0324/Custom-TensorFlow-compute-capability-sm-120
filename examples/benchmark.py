@@ -263,6 +263,7 @@ class BenchmarkSuite:
                     elif op_name == "min":
                         op_fn = tf.reduce_min
                     elif op_name == "std":
+
                         def op_fn(x):
                             return tf.math.reduce_std(x)
 

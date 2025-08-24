@@ -17,7 +17,6 @@ on:
 env:
   CUDA_VERSION: "12.4.0"
   CUDNN_VERSION: "9.7"
-  LLVM_VERSION: "17"
   PYTHON_VERSIONS: "3.9,3.10,3.11,3.12,3.13"
 
 jobs:
@@ -162,12 +161,10 @@ jobs:
     - name: Setup LLVM
       if: runner.os == 'Linux'
       run: |
-        wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
-        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{ env.LLVM_VERSION }} main" | sudo tee /etc/apt/sources.list.d/llvm.list > /dev/null
         sudo apt-get update
-        sudo apt-get install -y clang-${{ env.LLVM_VERSION }} llvm-${{ env.LLVM_VERSION }} lld-${{ env.LLVM_VERSION }}
-        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ env.LLVM_VERSION }} 100
-        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ env.LLVM_VERSION }} 100
+        sudo apt-get install -y clang clang++ llvm llvm-dev lld libc++-dev libc++abi-dev
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang 100
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++ 100
     
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -241,8 +238,8 @@ jobs:
     
     - name: Build SM120 TensorFlow
       env:
-        CC: clang-${{ env.LLVM_VERSION }}
-        CXX: clang++-${{ env.LLVM_VERSION }}
+        CC: clang
+        CXX: clang++
       run: |
         set -x  # Enable debug output
         

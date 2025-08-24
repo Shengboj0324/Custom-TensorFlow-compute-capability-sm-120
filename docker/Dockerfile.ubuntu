@@ -86,23 +86,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LLVM 17 (required for TensorFlow compilation)
+# Install LLVM (required for TensorFlow compilation)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    clang-17 \
-    clang++-17 \
-    llvm-17 \
-    llvm-17-dev \
-    llvm-17-tools \
-    llvm-17-runtime \
-    libc++-17-dev \
-    libc++abi-17-dev \
-    lld-17 \
-    && rm -rf /var/lib/apt/lists/* && \
+        clang \
+        clang++ \
+        llvm \
+        llvm-dev \
+        llvm-runtime \
+        libc++-dev \
+        libc++abi-dev \
+        lld && \
+    rm -rf /var/lib/apt/lists/* && \
     # Set up alternatives for clang
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100 && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100 && \
-    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-17 100
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++ 100 && \
+    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config 100
 
 # Install cuDNN 9.x for CUDA 12.4
 RUN apt-get update && \
