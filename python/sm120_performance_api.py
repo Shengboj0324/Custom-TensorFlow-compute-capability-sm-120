@@ -15,7 +15,6 @@ from collections import defaultdict, deque
 import warnings
 
 try:
-
     SM120_AVAILABLE = True
 except ImportError:
     SM120_AVAILABLE = False
