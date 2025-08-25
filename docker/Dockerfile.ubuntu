@@ -23,9 +23,9 @@ ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 ENV CUDA_ROOT=$CUDA_HOME
 ENV CUDA_TOOLKIT_PATH=$CUDA_HOME
 
-# Build environment
-ENV CC=/usr/bin/clang-22
-ENV CXX=/usr/bin/clang++-22
+# Build environment - Use available compiler versions
+ENV CC=/usr/bin/clang
+ENV CXX=/usr/bin/clang++
 ENV BAZEL_LINKLIBS=-l%:libstdc++.a
 ENV BAZEL_LINKOPTS=-static-libgcc
 

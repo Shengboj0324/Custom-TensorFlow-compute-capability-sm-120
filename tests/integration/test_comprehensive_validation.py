@@ -20,24 +20,46 @@ sys.path.append(
 )
 
 try:
-    from python.sm120_keras_layers import (
-        SM120Dense,
-        SM120Conv2D,
-        SM120MultiHeadAttention,
-        create_sm120_transformer_encoder,
-    )
-    from python import sm120_ops
-    from python.sm120_performance_api import (
-        enable_profiling,
-        print_performance_summary,
-        get_average_metrics,
-    )
-    from python.sm120_datatype_manager import (
-        enable_mixed_precision,
-        auto_cast,
-        get_supported_types,
-        print_type_summary,
-    )
+    # Try importing as installed package first
+    try:
+        from sm120_keras_layers import (
+            SM120Dense,
+            SM120Conv2D,
+            SM120MultiHeadAttention,
+            create_sm120_transformer_encoder,
+        )
+        import sm120_ops
+        from sm120_performance_api import (
+            enable_profiling,
+            print_performance_summary,
+            get_average_metrics,
+        )
+        from sm120_datatype_manager import (
+            enable_mixed_precision,
+            auto_cast,
+            get_supported_types,
+            print_type_summary,
+        )
+    except ImportError:
+        # Fallback to relative import for development
+        from python.sm120_keras_layers import (
+            SM120Dense,
+            SM120Conv2D,
+            SM120MultiHeadAttention,
+            create_sm120_transformer_encoder,
+        )
+        from python import sm120_ops
+        from python.sm120_performance_api import (
+            enable_profiling,
+            print_performance_summary,
+            get_average_metrics,
+        )
+        from python.sm120_datatype_manager import (
+            enable_mixed_precision,
+            auto_cast,
+            get_supported_types,
+            print_type_summary,
+        )
 
     SM120_AVAILABLE = True
 except ImportError as e:

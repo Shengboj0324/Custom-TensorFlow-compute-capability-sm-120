@@ -2,7 +2,7 @@
 // Handles arbitrary dimensions, NHWC/NCHW formats, and dynamic batch sizes
 // Copyright 2024 - TensorFlow SM120 Optimization Project
 
-#include "sm120_kernel_launcher.h"
+#include "sm120_kernel_launcher_fixed.h"
 #include "sm120_datatype_support.h"
 #include "sm120_error_handling.h"
 #include <cuda_runtime.h>

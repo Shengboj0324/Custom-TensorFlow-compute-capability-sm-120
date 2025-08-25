@@ -16,12 +16,22 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from python.sm120_keras_layers import (
-        SM120Dense,
-        SM120Conv2D,
-        SM120MultiHeadAttention,
-        create_sm120_transformer_encoder,
-    )
+    # Try importing as installed package first
+    try:
+        from sm120_keras_layers import (
+            SM120Dense,
+            SM120Conv2D,
+            SM120MultiHeadAttention,
+            create_sm120_transformer_encoder,
+        )
+    except ImportError:
+        # Fallback to relative import for development
+        from python.sm120_keras_layers import (
+            SM120Dense,
+            SM120Conv2D,
+            SM120MultiHeadAttention,
+            create_sm120_transformer_encoder,
+        )
 
     SM120_AVAILABLE = True
     print("✅ SM120 optimized operations loaded successfully")

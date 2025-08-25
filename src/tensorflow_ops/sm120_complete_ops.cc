@@ -8,9 +8,9 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/util/gpu_device_functions.h"
-#include "sm120_kernel_launcher.h"
-#include "sm120_primitives.cu"
-#include "sm120_error_handling.h"
+#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
+#include "cuda_kernels/sm120_primitives.cu"
+#include "cuda_kernels/sm120_error_handling.h"
 #include <cstdlib>
 
 namespace tensorflow {

@@ -9,8 +9,8 @@
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/util/gpu_device_functions.h"
-#include "sm120_kernel_launcher.h"
-#include "sm120_backward_kernels.h"
+#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
+#include "cuda_kernels/sm120_backward_kernels.h"
 
 namespace tensorflow {
 

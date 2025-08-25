@@ -480,13 +480,9 @@ setup(
     # Entry points
     entry_points={
         "console_scripts": [
-            "sm120-benchmark=tensorflow_sm120.benchmark:main",
-            "sm120-validate=tensorflow_sm120.validate:main",
+            "sm120-benchmark=benchmark:main",
+            "sm120-validate=validate:main",
         ],
-    },
-    # Package data
-    package_data={
-        "tensorflow_sm120": ["*.so", "*.dll", "*.dylib"],
     },
     # Build requirements
     setup_requires=[

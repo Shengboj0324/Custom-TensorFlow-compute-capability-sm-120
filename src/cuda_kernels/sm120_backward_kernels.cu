@@ -2,7 +2,7 @@
 // Optimized gradient computation kernels with 5th generation Tensor Cores
 // Copyright 2024 - TensorFlow SM120 Optimization Project
 
-#include "sm120_kernel_launcher.h"
+#include "sm120_kernel_launcher_fixed.h"
 #include "sm120_backward_kernels.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>

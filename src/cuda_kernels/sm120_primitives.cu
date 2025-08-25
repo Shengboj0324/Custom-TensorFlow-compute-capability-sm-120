@@ -2,7 +2,7 @@
 // Comprehensive coverage of essential TensorFlow operations
 // Copyright 2024 - TensorFlow SM120 Optimization Project
 
-#include "sm120_kernel_launcher.h"
+#include "sm120_kernel_launcher_fixed.h"
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>

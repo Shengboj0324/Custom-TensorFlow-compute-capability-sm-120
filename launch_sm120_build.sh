@@ -78,10 +78,12 @@ quick_validate() {
     # Check CUDA
     if command -v nvcc &> /dev/null; then
         local cuda_version=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-        if (( $(echo "$cuda_version >= 12.8" | bc -l) 2>/dev/null )); then
+        if (( $(echo "$cuda_version >= 12.4" | bc -l) 2>/dev/null )); then
             echo -e "  ${GREEN}✓${NC} CUDA $cuda_version"
+        elif (( $(echo "$cuda_version >= 12.0" | bc -l) 2>/dev/null )); then
+            echo -e "  ${YELLOW}⚠${NC} CUDA $cuda_version (12.4+ recommended for optimal performance)"
         else
-            echo -e "  ${YELLOW}⚠${NC} CUDA $cuda_version (12.8+ recommended)"
+            echo -e "  ${YELLOW}⚠${NC} CUDA $cuda_version (12.4+ recommended, may have compatibility issues)"
         fi
     else
         echo -e "  ${RED}✗${NC} CUDA (missing)"
