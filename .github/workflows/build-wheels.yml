@@ -158,13 +158,7 @@ jobs:
           fi
         fi
     
-    - name: Setup LLVM
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y clang clang++ llvm llvm-dev lld libc++-dev libc++abi-dev
-        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang 100
-        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++ 100
+    # GCC is already available in GitHub Actions runners, no additional compiler setup needed
     
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -238,8 +232,8 @@ jobs:
     
     - name: Build SM120 TensorFlow
       env:
-        CC: clang
-        CXX: clang++
+        CC: gcc
+        CXX: g++
       run: |
         set -x  # Enable debug output
         

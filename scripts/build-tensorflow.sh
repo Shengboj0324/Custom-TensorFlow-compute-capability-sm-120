@@ -55,18 +55,18 @@ check_prerequisites() {
     fi
     log_success "CUDA $CUDA_VERSION found"
     
-    # Check Clang
-    if ! command -v clang &> /dev/null; then
-        log_error "Clang not found. Please run setup-environment.sh first."
+    # Check GCC
+    if ! command -v gcc &> /dev/null; then
+        log_error "GCC not found. Please install build-essential."
         exit 1
     fi
-    
-    local clang_version=$(clang --version | head -n1 | grep -o '[0-9]\+\.[0-9]\+' | head -n1)
-    if ! [[ "$clang_version" =~ ^22\. ]]; then
-        log_error "Clang $clang_version found, but version 22.x required"
+
+    local gcc_version=$(gcc --version | head -n1 | grep -o '[0-9]\+\.[0-9]\+' | head -n1)
+    if [[ $(echo "$gcc_version < 9.0" | bc -l) -eq 1 ]]; then
+        log_error "GCC $gcc_version found, but version 9.0+ required"
         exit 1
     fi
-    log_success "Clang $clang_version found"
+    log_success "GCC $gcc_version found"
     
     # Check Bazel
     if ! command -v bazel &> /dev/null; then
@@ -187,7 +187,7 @@ configure_tensorflow() {
     export CUDA_TOOLKIT_PATH=/usr/local/cuda-12.4
     export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
     export TF_CUDA_COMPUTE_CAPABILITIES="12.0"
-    export GCC_HOST_COMPILER_PATH=$(which clang)
+    export GCC_HOST_COMPILER_PATH=$(which gcc)
     export CC_OPT_FLAGS="-march=native -Wno-sign-compare"
     export TF_SET_ANDROID_WORKSPACE=0
     
@@ -311,7 +311,7 @@ System Information:
 
 Build Environment:
 - CUDA Version: $(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-- Clang Version: $(clang --version | head -n1)
+- GCC Version: $(gcc --version | head -n1)
 - Bazel Version: $(bazel version | grep "Build label" | cut -d' ' -f3)
 - Python Version: $(python --version)
 

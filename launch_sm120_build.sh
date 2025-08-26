@@ -237,7 +237,7 @@ print(f'GPU devices: {len(tf.config.list_physical_devices(\"GPU\"))}')
     fi
     
     echo -e "\n${WHITE}Build Dependencies:${NC}"
-    local deps=("cmake" "make" "gcc" "g++" "clang")
+    local deps=("cmake" "make" "gcc" "g++")
     for dep in "${deps[@]}"; do
         if command -v "$dep" &> /dev/null; then
             local version=$($dep --version 2>/dev/null | head -1 || echo "unknown")

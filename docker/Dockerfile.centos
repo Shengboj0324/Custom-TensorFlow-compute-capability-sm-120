@@ -21,9 +21,9 @@ ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 ENV CUDA_ROOT=$CUDA_HOME
 ENV CUDA_TOOLKIT_PATH=$CUDA_HOME
 
-# Build environment
-ENV CC=/usr/bin/clang
-ENV CXX=/usr/bin/clang++
+# Build environment - Use GCC to avoid LLVM/OpenCL conflicts
+ENV CC=/usr/bin/gcc
+ENV CXX=/usr/bin/g++
 
 # TensorFlow build configuration
 ENV TF_ENABLE_XLA=1
@@ -80,27 +80,7 @@ RUN dnf groupinstall -y "Development Tools" && \
     rsync \
     && dnf clean all
 
-# Build and install LLVM 22 from source (CentOS doesn't have LLVM 22 packages)
-RUN mkdir -p /tmp/llvm-build && \
-    cd /tmp/llvm-build && \
-    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.0.0/llvm-project-22.0.0.src.tar.xz && \
-    tar -xf llvm-project-22.0.0.src.tar.xz && \
-    cd llvm-project-22.0.0.src && \
-    mkdir build && cd build && \
-    cmake -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr/local \
-    -DLLVM_ENABLE_PROJECTS="clang;lld" \
-    -DLLVM_ENABLE_RTTI=ON \
-    -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
-    -DLLVM_OPTIMIZED_TABLEGEN=ON \
-    ../llvm && \
-    ninja -j$(nproc) && \
-    ninja install && \
-    cd / && rm -rf /tmp/llvm-build && \
-    # Create symlinks
-    ln -sf /usr/local/bin/clang /usr/bin/clang && \
-    ln -sf /usr/local/bin/clang++ /usr/bin/clang++
+# GCC is already available in the base image, no additional compiler installation needed
 
 # Install cuDNN (manual installation for CentOS)
 # Note: cuDNN must be manually installed for CentOS builds

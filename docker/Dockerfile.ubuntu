@@ -23,9 +23,9 @@ ENV LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 ENV CUDA_ROOT=$CUDA_HOME
 ENV CUDA_TOOLKIT_PATH=$CUDA_HOME
 
-# Build environment - Use available compiler versions
-ENV CC=/usr/bin/clang
-ENV CXX=/usr/bin/clang++
+# Build environment - Use GCC to avoid LLVM/OpenCL conflicts
+ENV CC=/usr/bin/gcc
+ENV CXX=/usr/bin/g++
 ENV BAZEL_LINKLIBS=-l%:libstdc++.a
 ENV BAZEL_LINKOPTS=-static-libgcc
 
@@ -86,22 +86,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     && rm -rf /var/lib/apt/lists/*
 
-# Install LLVM (required for TensorFlow compilation)
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        clang \
-        clang++ \
-        llvm \
-        llvm-dev \
-        llvm-runtime \
-        libc++-dev \
-        libc++abi-dev \
-        lld && \
-    rm -rf /var/lib/apt/lists/* && \
-    # Set up alternatives for clang
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang 100 && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++ 100 && \
-    update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config 100
+# GCC is already available in the base image, no additional compiler installation needed
 
 # Install cuDNN 9.x for CUDA 12.4
 RUN apt-get update && \
@@ -178,7 +163,7 @@ log_info "Target compute capability: 12.0 (sm_120)"
 # Verify environment
 log_info "Verifying build environment..."
 nvcc --version | grep "release"
-clang --version | head -n1
+gcc --version | head -n1
 bazel version | grep "Build label"
 python3 --version
 
@@ -299,7 +284,7 @@ cat > "\$BUILD_DIR/build-info.json" <<BUILDINFO
     "cudnn_version": "\$TF_CUDNN_VERSION",
     "compute_capability": "12.0",
     "target_architecture": "sm_120",
-    "compiler": "\$(clang --version | head -n1)",
+    "compiler": "\$(gcc --version | head -n1)",
     "bazel_version": "\$(bazel version | grep 'Build label' | cut -d' ' -f3)",
     "python_version": "\$(python3 --version | cut -d' ' -f2)",
     "build_host": "\$(hostname)",
@@ -377,7 +362,7 @@ set -e
 echo "TensorFlow sm_120 Build Container"
 echo "================================="
 echo "CUDA Version: $(nvcc --version | grep 'release' | sed 's/.*release //' | sed 's/,.*//')"
-echo "Clang Version: $(clang --version | head -n1 | grep -o 'clang version [0-9.]*' | cut -d' ' -f3)"
+echo "GCC Version: $(gcc --version | head -n1 | grep -o 'gcc (.*) [0-9.]*' | sed 's/.*) //')"
 echo "Python Version: $(python3 --version | cut -d' ' -f2)"
 echo "Available GPUs: $(nvidia-smi -L | wc -l)"
 echo ""

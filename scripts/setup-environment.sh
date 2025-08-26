@@ -207,45 +207,29 @@ install_cudnn() {
     log_success "cuDNN installation completed"
 }
 
-# Install LLVM 22
-install_llvm() {
-    log_info "Installing LLVM 22..."
-    
-    case $OS in
-        ubuntu)
-            # Add LLVM repository
-            wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-            sudo add-apt-repository "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-22 main"
-            sudo apt-get update
-            
-            # Install LLVM 22
-            sudo apt-get install -y \
-                clang-22 \
-                llvm-22 \
-                llvm-22-dev \
-                llvm-22-tools
-            
-            # Set as default
-            sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-22 100
-            sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-22 100
-            ;;
-        centos)
-            log_warning "LLVM 22 installation on CentOS requires building from source"
-            log_info "This may take several hours..."
-            
-            # Build LLVM from source (simplified)
-            cd /tmp
-            wget https://github.com/llvm/llvm-project/releases/download/llvmorg-22.0.0/llvm-project-22.0.0.src.tar.xz
-            tar -xf llvm-project-22.0.0.src.tar.xz
-            cd llvm-project-22.0.0.src
-            mkdir build && cd build
-            cmake -DCMAKE_BUILD_TYPE=Release -DLLVM_ENABLE_PROJECTS="clang" ../llvm
-            make -j$(nproc)
-            sudo make install
-            ;;
-    esac
-    
-    log_success "LLVM 22 installed"
+# GCC is already available in most distributions, no additional installation needed
+verify_gcc() {
+    log_info "Verifying GCC installation..."
+
+    if ! command -v gcc &> /dev/null; then
+        log_error "GCC not found. Installing build-essential..."
+        case $OS in
+            ubuntu)
+                sudo apt-get update
+                sudo apt-get install -y build-essential
+                ;;
+            centos)
+                sudo yum groupinstall -y "Development Tools"
+                ;;
+        esac
+    fi
+
+    local gcc_version=$(gcc --version | head -n1 | grep -o '[0-9]\+\.[0-9]\+' | head -n1)
+    if [[ $(echo "$gcc_version < 9.0" | bc -l) -eq 1 ]]; then
+        log_warning "GCC $gcc_version found, but version 9.0+ recommended"
+    else
+        log_success "GCC $gcc_version found"
+    fi
 }
 
 # Install Bazel
@@ -301,12 +285,12 @@ verify_installation() {
         log_error "CUDA verification failed"
     fi
     
-    # Check LLVM
-    if command -v clang &> /dev/null; then
-        local clang_version=$(clang --version | head -n1 | grep -o '[0-9]\+\.[0-9]\+' | head -n1)
-        log_success "Clang $clang_version verified"
+    # Check GCC
+    if command -v gcc &> /dev/null; then
+        local gcc_version=$(gcc --version | head -n1 | grep -o '[0-9]\+\.[0-9]\+' | head -n1)
+        log_success "GCC $gcc_version verified"
     else
-        log_error "Clang verification failed"
+        log_error "GCC verification failed"
     fi
     
     # Check Bazel
@@ -330,7 +314,7 @@ main() {
     install_system_deps
     install_cuda
     install_cudnn
-    install_llvm
+    verify_gcc
     install_bazel
     setup_python
     verify_installation
