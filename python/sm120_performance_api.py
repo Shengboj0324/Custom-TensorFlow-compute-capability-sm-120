@@ -14,7 +14,7 @@ except ImportError:
 import time
 import json
 import threading
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable, cast, Any
 from dataclasses import dataclass, asdict
 from collections import defaultdict, deque
 import warnings
@@ -550,7 +550,8 @@ class SM120PerformanceProfiler:
 
             for kernel_name, history in self._metrics_history.items():
                 if isinstance(data["metrics"], dict):
-                    data["metrics"][kernel_name] = [asdict(m) for m in history]
+                    metrics_dict = cast(Dict[str, Any], data["metrics"])
+                    metrics_dict[kernel_name] = [asdict(m) for m in history]
 
             if format.lower() == "json":
                 with open(filename, "w") as f:

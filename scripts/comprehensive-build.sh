@@ -25,7 +25,7 @@ LOG_FILE="${PROJECT_ROOT}/build.log"
 
 # Build options
 BUILD_TYPE="Release"
-CUDA_ARCH="120;89;86"
+CUDA_ARCH="89;86;80"
 OPTIMIZATION_LEVEL="3"
 PARALLEL_JOBS=$(nproc)
 ENABLE_TESTING="ON"
@@ -620,7 +620,7 @@ main() {
                 echo "Usage: $0 [options]"
                 echo "Options:"
                 echo "  --build-type TYPE     Build type (Debug/Release) [default: Release]"
-                echo "  --cuda-arch ARCH      CUDA architectures [default: 120;89;86]"
+                echo "  --cuda-arch ARCH      CUDA architectures [default: 89;86;80]"
                 echo "  --jobs N              Parallel jobs [default: $(nproc)]"
                 echo "  --no-tests            Skip testing"
                 echo "  --no-benchmarks       Skip benchmarks"

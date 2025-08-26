@@ -40,7 +40,7 @@ __device__ __forceinline__ void load_matrix_sync_sm120(
     wmma::fragment<wmma::matrix_a, 16, 16, 16, T, wmma::row_major>& a_frag,
     const T* a_ptr, unsigned lda) {
     
-#if __CUDA_ARCH__ >= 1200
+#if __CUDA_ARCH__ >= 890
     // Use new sm_120 optimized load instruction
     wmma::load_matrix_sync(a_frag, a_ptr, lda);
     
