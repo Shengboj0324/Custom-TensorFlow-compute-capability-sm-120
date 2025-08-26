@@ -229,7 +229,13 @@ jobs:
         echo "  Python Lib Path: $PYTHON_LIB_PATH"
         echo "  Build Jobs: $BUILD_JOBS"
         echo "  CUDA Arch: ${{ matrix.cuda-arch }}"
-    
+
+    - name: Install Base TensorFlow
+      run: |
+        echo "📦 Installing base TensorFlow for build validation..."
+        pip install tensorflow>=2.10.0
+        python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
+
     - name: Build SM120 TensorFlow
       env:
         CC: gcc

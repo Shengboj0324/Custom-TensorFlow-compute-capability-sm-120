@@ -239,7 +239,7 @@ validate_tensorflow() {
     if python3 -c "import tensorflow as tf; print(f'TensorFlow {tf.__version__}')" 2>/dev/null; then
         local tf_version=$(python3 -c "import tensorflow as tf; print(tf.__version__)")
         log_success "TensorFlow: $tf_version"
-        
+
         # Check TensorFlow GPU support
         local gpu_support=$(python3 -c "import tensorflow as tf; print(tf.test.is_built_with_cuda())" 2>/dev/null || echo "False")
         if [[ "$gpu_support" == "True" ]]; then
@@ -247,7 +247,7 @@ validate_tensorflow() {
         else
             log_warning "TensorFlow not built with CUDA support"
         fi
-        
+
         # Check available GPUs
         local gpu_count=$(python3 -c "import tensorflow as tf; print(len(tf.config.list_physical_devices('GPU')))" 2>/dev/null || echo "0")
         if [[ "$gpu_count" -gt 0 ]]; then
@@ -256,8 +256,12 @@ validate_tensorflow() {
             log_warning "TensorFlow cannot see any GPUs"
         fi
     else
-        log_error "TensorFlow not found or not working. Please install TensorFlow 2.10+"
-        exit 1
+        if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+            log_warning "TensorFlow not found - will be installed during build process in CI"
+        else
+            log_error "TensorFlow not found or not working. Please install TensorFlow 2.10+"
+            exit 1
+        fi
     fi
 }
 
