@@ -92,7 +92,7 @@ if(NOT TENSORFLOW_INCLUDE_DIR)
     if(TF_INCLUDE_FROM_PYTHON)
         set(TENSORFLOW_INCLUDE_DIR ${TF_INCLUDE_FROM_PYTHON})
         message(STATUS "Found TensorFlow headers via Python: ${TENSORFLOW_INCLUDE_DIR}")
-    else
+    else()
         message(FATAL_ERROR "TensorFlow headers not found. Please install TensorFlow development headers.")
     endif()
 endif()

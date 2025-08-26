@@ -6,8 +6,13 @@ with automatic fallback and gradient support.
 Copyright 2024 - TensorFlow SM120 Optimization Project
 """
 
-import tensorflow as tf
-import numpy as np
+try:
+    import tensorflow as tf
+    import numpy as np
+except ImportError:
+    # Dependencies not available during linting - will be installed later
+    tf = None
+    np = None
 from typing import Optional, Union, Tuple
 import warnings
 

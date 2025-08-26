@@ -12,11 +12,15 @@ Features:
 - Performance profiling and monitoring
 """
 
-import tensorflow as tf
-
-from tensorflow.python.platform import resource_loader
-
-import numpy as np
+try:
+    import tensorflow as tf
+    from tensorflow.python.platform import resource_loader
+    import numpy as np
+except ImportError:
+    # Dependencies not available during linting - will be installed later
+    tf = None
+    resource_loader = None
+    np = None
 from typing import Optional, Union, List, Tuple, Dict, Any
 import warnings
 

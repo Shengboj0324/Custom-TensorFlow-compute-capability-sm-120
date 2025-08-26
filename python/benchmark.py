@@ -12,7 +12,11 @@ import sys
 import os
 from typing import Dict, List, Tuple
 
-import tensorflow as tf
+try:
+    import tensorflow as tf
+except ImportError:
+    # TensorFlow not available during linting - will be installed later
+    tf = None
 
 # Add the parent directory to the path to import sm120_ops
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

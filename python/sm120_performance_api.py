@@ -4,8 +4,13 @@ Comprehensive performance analysis and automatic optimization for SM120 operatio
 Copyright 2024 - TensorFlow SM120 Optimization Project
 """
 
-import tensorflow as tf
-import numpy as np
+try:
+    import tensorflow as tf
+    import numpy as np
+except ImportError:
+    # Dependencies not available during linting - will be installed later
+    tf = None
+    np = None
 import time
 import json
 import threading
