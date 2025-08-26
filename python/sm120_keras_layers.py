@@ -13,7 +13,7 @@ except ImportError:
     # Dependencies not available during linting - will be installed later
     tf = None
     np = None
-from typing import Optional, Union, Tuple, Callable, Dict, Any, List
+from typing import Optional, Union, Tuple, Callable
 import warnings
 
 try:

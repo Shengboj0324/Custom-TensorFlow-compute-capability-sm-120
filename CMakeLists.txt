@@ -39,7 +39,7 @@ find_package(CUDA 12.4 REQUIRED)
 find_package(PkgConfig REQUIRED)
 
 # CUDA architecture settings for sm_120
-set(CMAKE_CUDA_ARCHITECTURES "120;89;86;80;75")
+set(CMAKE_CUDA_ARCHITECTURES "89;86;80;75")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -use_fast_math -O3 --expt-relaxed-constexpr --expt-extended-lambda")
 set(CMAKE_CUDA_FLAGS_DEBUG "-g -G -O0")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG --use_fast_math")
