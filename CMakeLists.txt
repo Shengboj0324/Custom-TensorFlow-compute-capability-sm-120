@@ -118,14 +118,26 @@ find_library(CUDA_CURAND_LIBRARY curand ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 find_library(CUDA_CUSOLVER_LIBRARY cusolver ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 find_library(CUDA_CUSPARSE_LIBRARY cusparse ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 
-# Check for cuDNN
+# Check for cuDNN (including pip-installed locations)
+execute_process(
+    COMMAND python3 -c "import nvidia.cudnn; print(nvidia.cudnn.__path__[0])"
+    OUTPUT_VARIABLE CUDNN_PIP_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
 find_path(CUDNN_INCLUDE_DIR cudnn.h
     PATHS ${CUDA_TOOLKIT_ROOT_DIR}/include
           /usr/include
-          /usr/local/include)
+          /usr/local/include
+          ${CUDNN_PIP_PATH}/include
+          /opt/hostedtoolcache/Python/*/x64/lib/python*/site-packages/nvidia/cudnn/include)
 
 if(NOT CUDNN_INCLUDE_DIR)
+    message(STATUS "cuDNN pip path: ${CUDNN_PIP_PATH}")
     message(FATAL_ERROR "cuDNN headers not found. Please install cuDNN 9.x for CUDA 12.4+")
+else()
+    message(STATUS "Found cuDNN headers: ${CUDNN_INCLUDE_DIR}")
 endif()
 
 # Include directories
