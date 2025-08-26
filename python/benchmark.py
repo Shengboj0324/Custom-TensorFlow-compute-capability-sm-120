@@ -10,10 +10,9 @@ import argparse
 import time
 import sys
 import os
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 import tensorflow as tf
-import numpy as np
 
 # Add the parent directory to the path to import sm120_ops
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,9 +66,9 @@ class SM120Benchmark:
             start_time = time.time()
             for _ in range(self.benchmark_iterations):
                 if SM120_AVAILABLE:
-                    result = sm120_ops.sm120_matmul(A, B)
+                    _ = sm120_ops.sm120_matmul(A, B)
                 else:
-                    result = tf.matmul(A, B)
+                    _ = tf.matmul(A, B)
             end_time = time.time()
 
             avg_time = (end_time - start_time) / self.benchmark_iterations * 1000  # ms
@@ -108,11 +107,11 @@ class SM120Benchmark:
             start_time = time.time()
             for _ in range(self.benchmark_iterations):
                 if SM120_AVAILABLE:
-                    result = sm120_ops.sm120_conv2d(
+                    _ = sm120_ops.sm120_conv2d(
                         input_tensor, filters, strides=[1, 1, 1, 1], padding="SAME"
                     )
                 else:
-                    result = tf.nn.conv2d(
+                    _ = tf.nn.conv2d(
                         input_tensor, filters, strides=[1, 1, 1, 1], padding="SAME"
                     )
             end_time = time.time()

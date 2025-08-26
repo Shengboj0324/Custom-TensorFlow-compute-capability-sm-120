@@ -9,11 +9,8 @@ It can be used as a standalone script or imported as a module.
 import argparse
 import sys
 import os
-import subprocess
-from typing import Dict, List, Tuple, Optional, Any
 
 import tensorflow as tf
-import numpy as np
 
 # Add the parent directory to the path to import sm120_ops
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -86,11 +83,13 @@ class SM120Validator:
         python_version = sys.version_info
         if python_version >= (3, 9):
             log_success(
-                f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+                f"Python version: {python_version.major}.{python_version.minor}."
+                f"{python_version.micro}"
             )
         else:
             log_error(
-                f"Python version: {python_version.major}.{python_version.minor}.{python_version.micro} (3.9+ required)"
+                f"Python version: {python_version.major}.{python_version.minor}."
+                f"{python_version.micro} (3.9+ required)"
             )
             success = False
 
@@ -159,7 +158,8 @@ class SM120Validator:
                     log_success("SM120 matrix multiplication test passed")
                 else:
                     log_error(
-                        f"SM120 matrix multiplication shape mismatch: got {result.shape}, expected {expected_shape}"
+                        f"SM120 matrix multiplication shape mismatch: "
+                        f"got {result.shape}, expected {expected_shape}"
                     )
                     success = False
 

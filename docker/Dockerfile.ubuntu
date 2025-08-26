@@ -40,6 +40,11 @@ ENV TF_CUDNN_VERSION=9
 ENV TF_CUDA_COMPUTE_CAPABILITIES=12.0
 ENV TF_SET_ANDROID_WORKSPACE=0
 ENV BUILD_WITH_FULL_OPTIMIZATIONS=1
+ENV TF_CUDA_CLANG=1
+ENV CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
+ENV GCC_HOST_COMPILER_PATH=/usr/bin/gcc
+ENV TF_NEED_MPI=0
+ENV PYTHON_BIN_PATH=/usr/bin/python3
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -49,6 +54,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     ninja-build \
     pkg-config \
+    clang \
+    llvm \
     # Development tools
     git \
     curl \
@@ -204,8 +211,25 @@ log_info "Configuring TensorFlow for sm_120 build..."
 export PYTHON_BIN_PATH=\$(which python3)
 export PYTHON_LIB_PATH=\$(python3 -c "import site; print(site.getsitepackages()[0])")
 
-# Run configure script with optimal settings
-python3 configure.py
+# Set all TensorFlow configuration environment variables for non-interactive build
+export TF_NEED_CUDA=1
+export TF_NEED_TENSORRT=0
+export TF_CUDA_VERSION=12.4
+export TF_CUDNN_VERSION=9
+export TF_CUDA_COMPUTE_CAPABILITIES=12.0
+export CUDA_TOOLKIT_PATH=/usr/local/cuda
+export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
+export TF_CUDA_CLANG=1
+export CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
+export GCC_HOST_COMPILER_PATH=/usr/bin/gcc
+export TF_NEED_OPENCL_SYCL=0
+export TF_NEED_ROCM=0
+export TF_NEED_MPI=0
+export TF_SET_ANDROID_WORKSPACE=0
+
+# Run configure script with optimal settings (non-interactive)
+echo "Running TensorFlow configure script..."
+yes "" | python3 configure.py || python3 configure.py
 
 # Build TensorFlow with optimizations
 log_info "Building TensorFlow C++ library (this will take 2-4 hours)..."
