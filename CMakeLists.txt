@@ -74,11 +74,27 @@ find_path(TENSORFLOW_INCLUDE_DIR
         /usr/local/include
         /usr/include
         ${CMAKE_INSTALL_PREFIX}/include
+        # Add Python site-packages paths for CI environments
+        $ENV{VIRTUAL_ENV}/lib/python3.11/site-packages/tensorflow/include
+        /opt/hostedtoolcache/Python/3.11.*/x64/lib/python3.11/site-packages/tensorflow/include
     PATH_SUFFIXES tensorflow
 )
 
 if(NOT TENSORFLOW_INCLUDE_DIR)
-    message(FATAL_ERROR "TensorFlow headers not found. Please install TensorFlow development headers.")
+    # Try to find TensorFlow via Python in CI environments
+    execute_process(
+        COMMAND python3 -c "import tensorflow as tf; print(tf.sysconfig.get_include())"
+        OUTPUT_VARIABLE TF_INCLUDE_FROM_PYTHON
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    if(TF_INCLUDE_FROM_PYTHON)
+        set(TENSORFLOW_INCLUDE_DIR ${TF_INCLUDE_FROM_PYTHON})
+        message(STATUS "Found TensorFlow headers via Python: ${TENSORFLOW_INCLUDE_DIR}")
+    else
+        message(FATAL_ERROR "TensorFlow headers not found. Please install TensorFlow development headers.")
+    endif()
 endif()
 
 message(STATUS "TensorFlow include directory: ${TENSORFLOW_INCLUDE_DIR}")

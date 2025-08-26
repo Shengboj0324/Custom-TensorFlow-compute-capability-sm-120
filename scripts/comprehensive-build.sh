@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build"
 INSTALL_DIR="${PROJECT_ROOT}/install"
-PYTHON_ENV="${PROJECT_ROOT}/tf-sm120-env"
+PYTHON_ENV="${PROJECT_ROOT}/tf-build-env"
 LOG_FILE="${PROJECT_ROOT}/build.log"
 
 # Build options
@@ -181,7 +181,11 @@ validate_cuda() {
     # Check CUDA toolkit
     if command -v nvcc &> /dev/null; then
         local cuda_version=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-        if (( $(echo "$cuda_version >= 12.4" | bc -l) )); then
+        local cuda_major=$(echo "$cuda_version" | cut -d. -f1)
+        local cuda_minor=$(echo "$cuda_version" | cut -d. -f2)
+
+        # Check if version is >= 12.4
+        if [[ "$cuda_major" -gt 12 ]] || [[ "$cuda_major" -eq 12 && "$cuda_minor" -ge 4 ]]; then
             log_success "CUDA Toolkit: $cuda_version"
         else
             log_error "CUDA $cuda_version found, but 12.4+ required"
@@ -357,7 +361,7 @@ configure_cmake() {
     
     log_info "Configuring with CMake..."
     
-    cmake \
+    if cmake \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_CUDA_ARCHITECTURES="$CUDA_ARCH" \
@@ -365,39 +369,69 @@ configure_cmake() {
         -DBUILD_TESTS="$ENABLE_TESTING" \
         -DBUILD_BENCHMARKS="$ENABLE_BENCHMARKS" \
         -DCMAKE_VERBOSE_MAKEFILE=ON \
-        "$PROJECT_ROOT" 2>&1 | tee -a "$LOG_FILE"
-    
-    log_success "CMake configuration completed"
+        "$PROJECT_ROOT" 2>&1 | tee -a "$LOG_FILE"; then
+        log_success "CMake configuration completed"
+    else
+        log_error "CMake configuration failed. Check $LOG_FILE for details."
+        exit 1
+    fi
 }
 
 # Build process
 build_project() {
     log_header "Building Project"
-    
+
     cd "$BUILD_DIR"
-    
+
     log_info "Building with $PARALLEL_JOBS parallel jobs..."
-    
-    make -j"$PARALLEL_JOBS" 2>&1 | tee -a "$LOG_FILE"
-    
-    log_success "Build completed successfully"
+
+    if make -j"$PARALLEL_JOBS" 2>&1 | tee -a "$LOG_FILE"; then
+        log_success "Build completed successfully"
+    else
+        log_error "Build failed. Check $LOG_FILE for details."
+        exit 1
+    fi
 }
 
 # Python package build
 build_python_package() {
     if [[ "$ENABLE_PYTHON" == "ON" ]]; then
         log_header "Building Python Package"
-        
+
         cd "$PROJECT_ROOT"
-        source "$PYTHON_ENV/bin/activate"
-        
+
+        # Activate virtual environment if it exists and we're not in CI
+        if [[ -d "$PYTHON_ENV" ]] && [[ -z "$CI" ]] && [[ -z "$GITHUB_ACTIONS" ]]; then
+            log_info "Activating virtual environment..."
+            source "$PYTHON_ENV/bin/activate"
+        else
+            log_info "Using system Python environment (CI mode)"
+        fi
+
+        log_info "Installing build dependencies..."
+        pip install --upgrade pip setuptools wheel pybind11
+
         log_info "Building Python extension..."
-        python setup.py build_ext --inplace 2>&1 | tee -a "$LOG_FILE"
-        
+        if python setup.py build_ext --inplace 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Python extension built successfully"
+        else
+            log_error "Python extension build failed. Check $LOG_FILE for details."
+            exit 1
+        fi
+
         log_info "Building wheel..."
-        python setup.py bdist_wheel 2>&1 | tee -a "$LOG_FILE"
-        
-        log_success "Python package built successfully"
+        if python setup.py bdist_wheel 2>&1 | tee -a "$LOG_FILE"; then
+            log_success "Python wheel built successfully"
+
+            # List built wheels
+            if [[ -d "dist" ]]; then
+                log_info "Built wheels:"
+                ls -la dist/*.whl 2>/dev/null || log_warning "No wheel files found in dist/"
+            fi
+        else
+            log_error "Python wheel build failed. Check $LOG_FILE for details."
+            exit 1
+        fi
     fi
 }
 

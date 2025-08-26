@@ -389,14 +389,25 @@ def get_extensions():
         "src/tensorflow_ops/sm120_kernel_implementations.cu",
     ]
 
+    # Get TensorFlow include directories
+    include_dirs = [
+        pybind11.get_include(),
+        "src",
+    ]
+
+    # Add TensorFlow includes if available
+    try:
+        tf_includes, tf_libs, tf_compile_flags, tf_link_flags = find_tensorflow()
+        include_dirs.extend(tf_includes)
+    except Exception:
+        # TensorFlow not available during setup - will be installed later
+        pass
+
     # Main extension
     ext = Pybind11Extension(
         "_sm120_ops",
         sources=sources,
-        include_dirs=[
-            pybind11.get_include(),
-            "src",
-        ],
+        include_dirs=include_dirs,
         libraries=[],
         library_dirs=[],
         extra_compile_args=[],
@@ -480,8 +491,8 @@ setup(
     # Entry points
     entry_points={
         "console_scripts": [
-            "sm120-benchmark=benchmark:main",
-            "sm120-validate=validate:main",
+            "sm120-benchmark=python.benchmark:main",
+            "sm120-validate=python.validate:main",
         ],
     },
     # Build requirements
