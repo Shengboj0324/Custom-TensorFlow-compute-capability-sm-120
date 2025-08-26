@@ -184,7 +184,7 @@ class SM120PerformanceProfiler:
                 execution_time_ms=execution_time,
                 memory_bandwidth_gb_s=min(
                     memory_bandwidth,
-                    (self._gpu_info or {}).get("peak_memory_bandwidth", 1000)
+                    (self._gpu_info or {}).get("peak_memory_bandwidth", 1000),
                 ),
                 arithmetic_intensity=self._estimate_arithmetic_intensity(
                     kernel_name, input_shape
@@ -229,7 +229,9 @@ class SM120PerformanceProfiler:
                     else 0.0
                 ),
                 achieved_bandwidth=float(memory_bandwidth),
-                theoretical_bandwidth=(self._gpu_info or {}).get("peak_memory_bandwidth", 1000),
+                theoretical_bandwidth=(self._gpu_info or {}).get(
+                    "peak_memory_bandwidth", 1000
+                ),
                 flops_per_second=self._estimate_flops(
                     kernel_name, input_shape, execution_time
                 ),
@@ -322,7 +324,9 @@ class SM120PerformanceProfiler:
             self._optimization_hints[kernel_name] = OptimizationHints(
                 optimal_tile_size=16,
                 optimal_block_size=256,
-                use_tensor_cores=(self._gpu_info or {}).get("tensor_core_support", False),
+                use_tensor_cores=(self._gpu_info or {}).get(
+                    "tensor_core_support", False
+                ),
                 enable_async_copy=True,
                 preferred_data_type="float16",
                 memory_coalescing_factor=1.0,
@@ -355,7 +359,10 @@ class SM120PerformanceProfiler:
             hints.optimal_block_size = min(1024, hints.optimal_block_size * 2)
 
         # Adjust memory configuration
-        if avg_bandwidth < (self._gpu_info or {}).get("peak_memory_bandwidth", 1000) * 0.3:
+        if (
+            avg_bandwidth
+            < (self._gpu_info or {}).get("peak_memory_bandwidth", 1000) * 0.3
+        ):
             hints.memory_coalescing_factor = 0.8
             hints.shared_memory_config = "prefer_cache"
 

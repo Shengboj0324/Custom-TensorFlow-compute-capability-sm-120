@@ -26,7 +26,7 @@ tf_cuda_library(
         "-DEIGEN_USE_GPU",
         "--expt-relaxed-constexpr",
         "--expt-extended-lambda",
-        "-gencode=arch=compute_120,code=sm_120",  # RTX 50-series target
+        "-gencode=arch=compute_89,code=sm_89",   # Highest supported target
         "-gencode=arch=compute_89,code=sm_89",    # RTX 40-series fallback
         "-gencode=arch=compute_86,code=sm_86",    # RTX 30-series fallback
         "-use_fast_math",
@@ -71,7 +71,7 @@ tf_cuda_library(
         "-DEIGEN_USE_GPU",
         "--expt-relaxed-constexpr",
         "--expt-extended-lambda",
-        "-gencode=arch=compute_120,code=sm_120",
+        "-gencode=arch=compute_89,code=sm_89",
         "-gencode=arch=compute_89,code=sm_89",
         "-gencode=arch=compute_86,code=sm_86",
         "-use_fast_math",

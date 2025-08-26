@@ -65,7 +65,11 @@ def is_sm120_available() -> bool:
 
 def get_sm120_device_info() -> Dict[str, Any]:
     """Get detailed information about SM120 compatible devices."""
-    info: Dict[str, Any] = {"available": False, "devices": [], "library_loaded": _SM120_AVAILABLE}
+    info: Dict[str, Any] = {
+        "available": False,
+        "devices": [],
+        "library_loaded": _SM120_AVAILABLE,
+    }
 
     if not _SM120_AVAILABLE:
         return info
@@ -92,7 +96,9 @@ def get_sm120_device_info() -> Dict[str, Any]:
                     info["available"] = True
 
             except Exception as e:
-                cast(List[Dict[str, Any]], info["devices"]).append({"index": i, "name": gpu.name, "error": str(e)})
+                cast(List[Dict[str, Any]], info["devices"]).append(
+                    {"index": i, "name": gpu.name, "error": str(e)}
+                )
     except Exception:
         pass
 
