@@ -52,13 +52,19 @@ check_docker() {
 
 # Check NVIDIA Docker runtime
 check_nvidia_docker() {
+    # Skip GPU runtime check in CI environments
+    if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+        log_warning "Skipping NVIDIA Docker runtime check in CI environment"
+        return 0
+    fi
+
     if ! docker run --rm --gpus all nvidia/cuda:12.4.0-devel-ubuntu22.04 nvidia-smi &> /dev/null; then
         log_error "NVIDIA Docker runtime is not properly configured."
         log_info "Please install nvidia-container-toolkit:"
         log_info "  https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html"
         exit 1
     fi
-    
+
     log_success "NVIDIA Docker runtime is available"
 }
 
@@ -252,16 +258,27 @@ run_build() {
     # Create build directory on host
     mkdir -p "$BUILD_DIR"
     
-    # Run the build container
-    docker run \
-        --name "$CONTAINER_NAME" \
-        --gpus all \
-        --rm \
-        -v "$BUILD_DIR:/workspace/build" \
-        -v "$(pwd)/patches:/workspace/patches:ro" \
-        -e "NVIDIA_VISIBLE_DEVICES=all" \
-        -e "NVIDIA_DRIVER_CAPABILITIES=compute,utility" \
-        "$DOCKER_IMAGE:$DOCKER_TAG"
+    # Run the build container (with or without GPU based on environment)
+    if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+        # CI environment - no GPU support
+        docker run \
+            --name "$CONTAINER_NAME" \
+            --rm \
+            -v "$BUILD_DIR:/workspace/build" \
+            -v "$(pwd)/patches:/workspace/patches:ro" \
+            "$DOCKER_IMAGE:$DOCKER_TAG"
+    else
+        # Local environment - with GPU support
+        docker run \
+            --name "$CONTAINER_NAME" \
+            --gpus all \
+            --rm \
+            -v "$BUILD_DIR:/workspace/build" \
+            -v "$(pwd)/patches:/workspace/patches:ro" \
+            -e "NVIDIA_VISIBLE_DEVICES=all" \
+            -e "NVIDIA_DRIVER_CAPABILITIES=compute,utility" \
+            "$DOCKER_IMAGE:$DOCKER_TAG"
+    fi
     
     log_success "Build completed"
 }

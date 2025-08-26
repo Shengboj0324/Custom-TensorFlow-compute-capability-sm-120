@@ -119,7 +119,7 @@ class SM120Validator:
             log_warning("No GPU devices found")
 
         return success
-    
+
     def validate_sm120_operations(self) -> bool:
         """Validate SM120 operations functionality."""
         log_header("SM120 Operations Validation")
@@ -168,7 +168,7 @@ class SM120Validator:
             success = False
 
         return success
-    
+
     def validate_performance(self) -> bool:
         """Validate SM120 performance improvements."""
         log_header("Performance Validation")
@@ -220,7 +220,7 @@ class SM120Validator:
         except Exception as e:
             log_error(f"Performance validation failed: {e}")
             return False
-    
+
     def run_all_validations(self) -> bool:
         """Run all validation tests."""
         log_header("TensorFlow SM120 Validation Suite")

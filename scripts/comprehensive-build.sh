@@ -194,15 +194,14 @@ validate_cuda() {
     
     # Check cuDNN
     local cudnn_found=false
+
+    # Standard cuDNN locations
     local cudnn_paths=(
         "/usr/local/cuda/include/cudnn.h"
         "/usr/include/cudnn.h"
         "/usr/include/x86_64-linux-gnu/cudnn.h"
         "/usr/local/cuda-12.4/include/cudnn.h"
         "/opt/cuda/include/cudnn.h"
-        # Pip-installed cuDNN locations
-        "$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null)/nvidia/cudnn/include/cudnn.h"
-        "/opt/hostedtoolcache/Python/*/x64/lib/python*/site-packages/nvidia/cudnn/include/cudnn.h"
     )
 
     for path in "${cudnn_paths[@]}"; do
@@ -212,6 +211,28 @@ validate_cuda() {
             break
         fi
     done
+
+    # Check pip-installed cuDNN locations (expand paths dynamically)
+    if [[ "$cudnn_found" == "false" ]]; then
+        # Try to get site-packages path
+        local site_packages=$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null || echo "")
+        if [[ -n "$site_packages" ]]; then
+            local pip_cudnn_path="$site_packages/nvidia/cudnn/include/cudnn.h"
+            if [[ -f "$pip_cudnn_path" ]]; then
+                log_success "cuDNN headers found at $pip_cudnn_path (pip installation)"
+                cudnn_found=true
+            fi
+        fi
+
+        # Check hostedtoolcache paths (GitHub Actions)
+        for toolcache_path in /opt/hostedtoolcache/Python/*/x64/lib/python*/site-packages/nvidia/cudnn/include/cudnn.h; do
+            if [[ -f "$toolcache_path" ]]; then
+                log_success "cuDNN headers found at $toolcache_path (hostedtoolcache)"
+                cudnn_found=true
+                break
+            fi
+        done
+    fi
 
     # Also try Python-based detection for pip-installed cuDNN
     if [[ "$cudnn_found" == "false" ]]; then
@@ -234,7 +255,13 @@ validate_cuda() {
 # TensorFlow validation
 validate_tensorflow() {
     log_header "TensorFlow Environment Validation"
-    
+
+    # Ensure virtual environment is activated if it exists (skip in CI)
+    if [[ -d "$PYTHON_ENV" ]] && [[ -z "$VIRTUAL_ENV" ]] && [[ -z "$CI" ]] && [[ -z "$GITHUB_ACTIONS" ]]; then
+        log_info "Activating Python virtual environment for TensorFlow validation..."
+        source "$PYTHON_ENV/bin/activate"
+    fi
+
     # Check if TensorFlow is installed
     if python3 -c "import tensorflow as tf; print(f'TensorFlow {tf.__version__}')" 2>/dev/null; then
         local tf_version=$(python3 -c "import tensorflow as tf; print(tf.__version__)")
@@ -268,25 +295,50 @@ validate_tensorflow() {
 # Python environment setup
 setup_python_environment() {
     log_header "Python Environment Setup"
-    
-    if [[ ! -d "$PYTHON_ENV" ]]; then
-        log_info "Creating Python virtual environment..."
-        python3 -m venv "$PYTHON_ENV"
+
+    # In CI environments, use the existing Python environment
+    if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+        log_info "CI environment detected - using existing Python environment"
+
+        # Verify TensorFlow is already installed
+        if python3 -c "import tensorflow as tf; print(f'TensorFlow {tf.__version__}')" 2>/dev/null; then
+            log_success "TensorFlow already available in CI environment"
+        else
+            log_info "Installing TensorFlow in CI environment..."
+            pip install tensorflow>=2.10.0
+        fi
+
+        log_info "Installing additional dependencies..."
+        pip install --upgrade pip setuptools wheel
+        pip install numpy>=1.21.0 pybind11>=2.10.0
+
+        # Install development dependencies
+        pip install pytest pytest-cov black flake8 mypy
+
+        # Install benchmarking dependencies
+        pip install matplotlib pandas seaborn
+
+    else
+        # Local development environment
+        if [[ ! -d "$PYTHON_ENV" ]]; then
+            log_info "Creating Python virtual environment..."
+            python3 -m venv "$PYTHON_ENV"
+        fi
+
+        log_info "Activating virtual environment..."
+        source "$PYTHON_ENV/bin/activate"
+
+        log_info "Upgrading pip and installing dependencies..."
+        pip install --upgrade pip setuptools wheel
+        pip install tensorflow>=2.10.0 numpy>=1.21.0 pybind11>=2.10.0
+
+        # Install development dependencies
+        pip install pytest pytest-cov black flake8 mypy
+
+        # Install benchmarking dependencies
+        pip install matplotlib pandas seaborn
     fi
-    
-    log_info "Activating virtual environment..."
-    source "$PYTHON_ENV/bin/activate"
-    
-    log_info "Upgrading pip and installing dependencies..."
-    pip install --upgrade pip setuptools wheel
-    pip install tensorflow>=2.10.0 numpy>=1.21.0 pybind11>=2.10.0
-    
-    # Install development dependencies
-    pip install pytest pytest-cov black flake8 mypy
-    
-    # Install benchmarking dependencies
-    pip install matplotlib pandas seaborn
-    
+
     log_success "Python environment ready"
 }
 
@@ -552,8 +604,8 @@ main() {
     # Execute build steps
     validate_system
     validate_cuda
-    validate_tensorflow
     setup_python_environment
+    validate_tensorflow
     configure_cmake
     build_project
     build_python_package

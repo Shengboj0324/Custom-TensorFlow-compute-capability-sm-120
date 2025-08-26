@@ -77,7 +77,7 @@ class SM120Benchmark:
             print(f"  Average time: {avg_time:.3f} ms")
 
         return results
-    
+
     def benchmark_conv2d(
         self, shapes: List[Tuple[int, int, int, int]]
     ) -> Dict[str, float]:
@@ -122,7 +122,7 @@ class SM120Benchmark:
             print(f"  Average time: {avg_time:.3f} ms")
 
         return results
-    
+
     def run_all_benchmarks(self) -> Dict[str, Dict[str, float]]:
         """Run all available benchmarks."""
         print("Starting SM120 Benchmark Suite...")
@@ -142,7 +142,7 @@ class SM120Benchmark:
         all_results["conv2d"] = self.benchmark_conv2d(conv_shapes)
 
         return all_results
-    
+
     def print_summary(self, results: Dict[str, Dict[str, float]]):
         """Print benchmark summary."""
         print("\n" + "=" * 60)

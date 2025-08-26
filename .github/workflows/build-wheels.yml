@@ -230,11 +230,13 @@ jobs:
         echo "  Build Jobs: $BUILD_JOBS"
         echo "  CUDA Arch: ${{ matrix.cuda-arch }}"
 
-    - name: Install Base TensorFlow
+    - name: Install Base TensorFlow and cuDNN
       run: |
-        echo "📦 Installing base TensorFlow for build validation..."
+        echo "📦 Installing base TensorFlow and cuDNN for build validation..."
         pip install tensorflow>=2.10.0
+        pip install nvidia-cudnn-cu12
         python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__)"
+        python -c "import nvidia.cudnn; print('cuDNN available via pip')" || echo "cuDNN pip package not available"
 
     - name: Build SM120 TensorFlow
       env:
