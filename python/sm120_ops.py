@@ -21,7 +21,7 @@ except ImportError:
     tf = None
     resource_loader = None
     np = None
-from typing import Optional, Union, List, Tuple, Dict, Any
+from typing import Optional, Union, List, Tuple, Dict, Any, cast
 import warnings
 
 # Load the sm_120 operations library
@@ -65,7 +65,7 @@ def is_sm120_available() -> bool:
 
 def get_sm120_device_info() -> Dict[str, Any]:
     """Get detailed information about SM120 compatible devices."""
-    info = {"available": False, "devices": [], "library_loaded": _SM120_AVAILABLE}
+    info: Dict[str, Any] = {"available": False, "devices": [], "library_loaded": _SM120_AVAILABLE}
 
     if not _SM120_AVAILABLE:
         return info
@@ -86,13 +86,13 @@ def get_sm120_device_info() -> Dict[str, Any]:
                     "details": details,
                 }
 
-                info["devices"].append(device_info)
+                cast(List[Dict[str, Any]], info["devices"]).append(device_info)
 
                 if device_info["sm120_compatible"]:
                     info["available"] = True
 
             except Exception as e:
-                info["devices"].append({"index": i, "name": gpu.name, "error": str(e)})
+                cast(List[Dict[str, Any]], info["devices"]).append({"index": i, "name": gpu.name, "error": str(e)})
     except Exception:
         pass
 
@@ -411,7 +411,7 @@ class SM120Profiler:
 
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
-        self.metrics = {}
+        self.metrics: Dict[str, Dict[str, Any]] = {}
 
     def profile_operation(self, operation_name: str, operation_fn, *args, **kwargs):
         """Profile a SM120 operation and collect metrics."""

@@ -216,7 +216,7 @@ export TF_NEED_CUDA=1
 export TF_NEED_TENSORRT=0
 export TF_CUDA_VERSION=12.4
 export TF_CUDNN_VERSION=9
-export TF_CUDA_COMPUTE_CAPABILITIES=12.0
+export TF_CUDA_COMPUTE_CAPABILITIES=8.9
 export CUDA_TOOLKIT_PATH=/usr/local/cuda
 export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
 export TF_CUDA_CLANG=1
@@ -235,12 +235,15 @@ build --action_env PYTHON_LIB_PATH="/usr/local/lib/python3.10/dist-packages"
 build --python_path="/usr/bin/python3"
 
 # CUDA configuration
-build --config=cuda
-build --action_env TF_CUDA_VERSION="12.4"
-build --action_env TF_CUDNN_VERSION="9"
-build --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
-build --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0"
-build --action_env GCC_HOST_COMPILER_PATH="/usr/bin/gcc"
+build:cuda --define=using_cuda=true
+build:cuda --define=using_cuda_nvcc=true
+build:cuda --action_env TF_CUDA_VERSION="12.4"
+build:cuda --action_env TF_CUDNN_VERSION="9"
+build:cuda --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
+build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="8.9"
+build:cuda --action_env GCC_HOST_COMPILER_PATH="/usr/bin/gcc"
+build:cuda --action_env CLANG_CUDA_COMPILER_PATH="/usr/bin/clang"
+build:cuda --action_env TF_CUDA_CLANG="1"
 
 # Optimization flags
 build --config=opt
@@ -255,9 +258,21 @@ build --local_ram_resources=HOST_RAM*0.8
 build --local_cpu_resources=HOST_CPUS*0.8
 BAZELRC_EOF
 
-# Run configure script with all environment variables set (completely non-interactive)
+# Create complete configuration answers file
+cat > /tmp/tf_configure_answers.txt << 'EOF'
+
+
+8.9
+/usr/local/cuda
+/usr/lib/x86_64-linux-gnu
+
+n
+-Wno-sign-compare
+EOF
+
+# Run configure script with all answers provided
 echo "Running TensorFlow configure script..."
-echo -e "\\n\\n12.0\\n/usr/local/cuda\\n/usr/lib/x86_64-linux-gnu\\n\\nn\\n-Wno-sign-compare\\n" | python3 configure.py
+python3 configure.py < /tmp/tf_configure_answers.txt
 
 # Build TensorFlow with optimizations
 log_info "Building TensorFlow C++ library (this will take 2-4 hours)..."

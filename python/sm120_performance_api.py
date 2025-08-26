@@ -139,6 +139,8 @@ class SM120PerformanceProfiler:
                     return 616.0
                 else:
                     return 500.0
+            else:
+                return 1000.0  # No GPU found
         except Exception:
             return 1000.0  # Conservative default
 
@@ -181,7 +183,8 @@ class SM120PerformanceProfiler:
                 kernel_name=kernel_name,
                 execution_time_ms=execution_time,
                 memory_bandwidth_gb_s=min(
-                    memory_bandwidth, self._gpu_info.get("peak_memory_bandwidth", 1000)
+                    memory_bandwidth,
+                    (self._gpu_info or {}).get("peak_memory_bandwidth", 1000)
                 ),
                 arithmetic_intensity=self._estimate_arithmetic_intensity(
                     kernel_name, input_shape
@@ -218,15 +221,15 @@ class SM120PerformanceProfiler:
                     else 0.0
                 ),
                 memory_efficiency=memory_bandwidth
-                / self._gpu_info.get("peak_memory_bandwidth", 1000)
+                / (self._gpu_info or {}).get("peak_memory_bandwidth", 1000)
                 * 100,
                 compute_utilization=(
                     additional_metrics.get("compute_utilization", 0.0)
                     if additional_metrics
                     else 0.0
                 ),
-                achieved_bandwidth=memory_bandwidth,
-                theoretical_bandwidth=self._gpu_info.get("peak_memory_bandwidth", 1000),
+                achieved_bandwidth=float(memory_bandwidth),
+                theoretical_bandwidth=(self._gpu_info or {}).get("peak_memory_bandwidth", 1000),
                 flops_per_second=self._estimate_flops(
                     kernel_name, input_shape, execution_time
                 ),
@@ -311,7 +314,7 @@ class SM120PerformanceProfiler:
             # Element-wise operations
             flops = total_elements
 
-        return flops / (execution_time_ms / 1000.0)
+        return float(flops / (execution_time_ms / 1000.0))
 
     def _update_optimization_hints(self, kernel_name: str, metrics: KernelMetrics):
         """Update optimization hints based on performance metrics."""
@@ -319,7 +322,7 @@ class SM120PerformanceProfiler:
             self._optimization_hints[kernel_name] = OptimizationHints(
                 optimal_tile_size=16,
                 optimal_block_size=256,
-                use_tensor_cores=self._gpu_info.get("tensor_core_support", False),
+                use_tensor_cores=(self._gpu_info or {}).get("tensor_core_support", False),
                 enable_async_copy=True,
                 preferred_data_type="float16",
                 memory_coalescing_factor=1.0,
@@ -352,7 +355,7 @@ class SM120PerformanceProfiler:
             hints.optimal_block_size = min(1024, hints.optimal_block_size * 2)
 
         # Adjust memory configuration
-        if avg_bandwidth < self._gpu_info.get("peak_memory_bandwidth", 1000) * 0.3:
+        if avg_bandwidth < (self._gpu_info or {}).get("peak_memory_bandwidth", 1000) * 0.3:
             hints.memory_coalescing_factor = 0.8
             hints.shared_memory_config = "prefer_cache"
 
@@ -539,7 +542,8 @@ class SM120PerformanceProfiler:
             }
 
             for kernel_name, history in self._metrics_history.items():
-                data["metrics"][kernel_name] = [asdict(m) for m in history]
+                if isinstance(data["metrics"], dict):
+                    data["metrics"][kernel_name] = [asdict(m) for m in history]
 
             if format.lower() == "json":
                 with open(filename, "w") as f:

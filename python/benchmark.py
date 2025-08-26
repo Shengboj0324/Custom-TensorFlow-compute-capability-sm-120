@@ -46,11 +46,11 @@ class SM120Benchmark:
     def __init__(self, warmup_iterations: int = 5, benchmark_iterations: int = 100):
         self.warmup_iterations = warmup_iterations
         self.benchmark_iterations = benchmark_iterations
-        self.results = {}
+        self.results: Dict[str, float] = {}
 
     def benchmark_matmul(self, shapes: List[Tuple[int, int, int]]) -> Dict[str, float]:
         """Benchmark matrix multiplication operations."""
-        results = {}
+        results: Dict[str, float] = {}
 
         for M, N, K in shapes:
             print(f"Benchmarking MatMul {M}x{N}x{K}...")

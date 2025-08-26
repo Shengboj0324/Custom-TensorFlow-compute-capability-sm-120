@@ -13,7 +13,7 @@ except ImportError:
     # Dependencies not available during linting - will be installed later
     tf = None
     np = None
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Callable, Dict, Any, List
 import warnings
 
 try:
@@ -81,7 +81,7 @@ class SM120Dense(SM120Layer):
     def __init__(
         self,
         units: int,
-        activation: Optional[Union[str, callable]] = None,
+        activation: Optional[Union[str, Callable]] = None,
         use_bias: bool = True,
         kernel_initializer: str = "glorot_uniform",
         bias_initializer: str = "zeros",
@@ -251,7 +251,7 @@ class SM120Conv2D(SM120Layer):
         data_format: Optional[str] = None,
         dilation_rate: Union[int, Tuple[int, int]] = (1, 1),
         groups: int = 1,
-        activation: Optional[Union[str, callable]] = None,
+        activation: Optional[Union[str, Callable]] = None,
         use_bias: bool = True,
         kernel_initializer: str = "glorot_uniform",
         bias_initializer: str = "zeros",
