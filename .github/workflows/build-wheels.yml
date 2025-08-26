@@ -41,13 +41,9 @@ jobs:
     - name: Check if Build Needed
       id: check
       run: |
-        # Skip builds for documentation-only changes
-        if git diff --name-only HEAD~1 | grep -E '\.(md|rst|txt)$' && \
-           ! git diff --name-only HEAD~1 | grep -E '\.(cu|cc|h|py|yml|yaml)$'; then
-          echo "should_build=false" >> $GITHUB_OUTPUT
-        else
-          echo "should_build=true" >> $GITHUB_OUTPUT
-        fi
+        # Always build for now - skip logic was causing issues
+        echo "should_build=true" >> $GITHUB_OUTPUT
+        echo "Build will proceed for all changes"
     
     - name: Calculate Version
       id: version
