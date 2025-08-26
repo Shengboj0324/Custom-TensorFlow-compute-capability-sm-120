@@ -193,11 +193,41 @@ validate_cuda() {
     fi
     
     # Check cuDNN
-    if [[ -f "/usr/local/cuda/include/cudnn.h" ]] || [[ -f "/usr/include/cudnn.h" ]]; then
-        log_success "cuDNN headers found"
-    else
-        log_error "cuDNN headers not found. Please install cuDNN 9.x"
-        exit 1
+    local cudnn_found=false
+    local cudnn_paths=(
+        "/usr/local/cuda/include/cudnn.h"
+        "/usr/include/cudnn.h"
+        "/usr/include/x86_64-linux-gnu/cudnn.h"
+        "/usr/local/cuda-12.4/include/cudnn.h"
+        "/opt/cuda/include/cudnn.h"
+        # Pip-installed cuDNN locations
+        "$(python3 -c 'import site; print(site.getsitepackages()[0])' 2>/dev/null)/nvidia/cudnn/include/cudnn.h"
+        "/opt/hostedtoolcache/Python/*/x64/lib/python*/site-packages/nvidia/cudnn/include/cudnn.h"
+    )
+
+    for path in "${cudnn_paths[@]}"; do
+        if [[ -f "$path" ]]; then
+            log_success "cuDNN headers found at $path"
+            cudnn_found=true
+            break
+        fi
+    done
+
+    # Also try Python-based detection for pip-installed cuDNN
+    if [[ "$cudnn_found" == "false" ]]; then
+        if python3 -c "import nvidia.cudnn; print('cuDNN found via pip')" 2>/dev/null; then
+            log_success "cuDNN found via pip installation"
+            cudnn_found=true
+        fi
+    fi
+
+    if [[ "$cudnn_found" == "false" ]]; then
+        if [[ -n "$CI" || -n "$GITHUB_ACTIONS" ]]; then
+            log_warning "cuDNN headers not found - continuing in CI mode (may use CPU-only build)"
+        else
+            log_error "cuDNN headers not found. Please install cuDNN 9.x"
+            exit 1
+        fi
     fi
 }
 

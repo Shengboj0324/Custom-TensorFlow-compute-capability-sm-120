@@ -252,11 +252,11 @@ def main():
     if gpus:
         for gpu in gpus:
             tf.config.experimental.set_memory_growth(gpu, True)
-    
+
     # Run validation
     validator = SM120Validator()
     success = validator.run_all_validations()
-    
+
     return 0 if success else 1
 
 
