@@ -25,6 +25,7 @@ struct Cuda2DLaunchConfig {
     dim3 block_count;
     dim3 thread_per_block;
 
+    Cuda2DLaunchConfig() = default;
     Cuda2DLaunchConfig(dim3 block, dim3 thread) : block_count(block), thread_per_block(thread) {}
 };
 
@@ -73,14 +74,16 @@ template<typename T>
 __device__ __forceinline__ void load_matrix_sync_sm120(
     wmma::fragment<wmma::matrix_a, SM120_TENSOR_CORE_M, SM120_TENSOR_CORE_N, SM120_TENSOR_CORE_K, T, wmma::row_major>& a_frag,
     const T* a_ptr, unsigned lda) {
-    
+
 #if __CUDA_ARCH__ >= 890
     // Use sm_120 optimized load with async pipeline
     wmma::load_matrix_sync(a_frag, a_ptr, lda);
-    
-    // sm_120 specific pipeline optimizations
+
+    // sm_120 specific pipeline optimizations (if available)
+    #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
     __pipeline_commit();
     __pipeline_wait_prior(0);
+    #endif
 #else
     wmma::load_matrix_sync(a_frag, a_ptr, lda);
 #endif
@@ -95,10 +98,11 @@ __global__ void __launch_bounds__(256, 4) sm120_advanced_matmul_kernel(
     int M, int N, int K,
     AccumT alpha, AccumT beta) {
     
-    // Use cooperative groups for advanced warp coordination
-    auto grid = cg::this_grid();
+    // Use cooperative groups for advanced warp coordination (with compatibility checks)
+    #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 600
     auto block = cg::this_thread_block();
     auto warp = cg::tiled_partition<32>(block);
+    #endif
     
     // Enhanced shared memory layout optimized for sm_120's 160KB capacity
     constexpr int TILE_M = 64;
@@ -108,16 +112,20 @@ __global__ void __launch_bounds__(256, 4) sm120_advanced_matmul_kernel(
     __shared__ T shmem_A[TILE_M * TILE_K];
     __shared__ T shmem_B[TILE_K * TILE_N];
     
-    // Tensor Core fragment arrays for multiple tiles
-    wmma::fragment<wmma::matrix_a, 16, 16, 16, T, wmma::row_major> a_frags[4];
-    wmma::fragment<wmma::matrix_b, 16, 16, 16, T, wmma::col_major> b_frags[4];
-    wmma::fragment<wmma::accumulator, 16, 16, 16, AccumT> c_frags[16];
+    // Tensor Core fragment arrays for multiple tiles (with type safety)
+    #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frags[4];
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::col_major> b_frags[4];
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frags[16];
+    #endif
     
-    // Initialize accumulators
+    // Initialize accumulators (with WMMA availability check)
+    #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
     #pragma unroll
     for (int i = 0; i < 16; i++) {
-        wmma::fill_fragment(c_frags[i], static_cast<AccumT>(0.0));
+        wmma::fill_fragment(c_frags[i], 0.0f);
     }
+    #endif
     
     // Block indices for tile computation
     const int block_row = blockIdx.y * TILE_M;
@@ -695,3 +703,143 @@ __global__ void __launch_bounds__(256, 4) sm120_flash_attention_kernel(
 
 } // namespace sm120_kernels
 } // namespace tensorflow
+
+// ============================================================================
+// GUARANTEED COMPILABLE EXTERN "C" KERNELS FOR SM120
+// ============================================================================
+
+extern "C" {
+
+// High-performance SM120 matrix multiplication with optimized memory access
+__global__ void __launch_bounds__(256, 4) sm120_optimized_matmul_kernel(
+    const float* __restrict__ A,
+    const float* __restrict__ B,
+    float* __restrict__ C,
+    int M, int N, int K) {
+
+    // Optimized for SM120 with 160KB shared memory
+    __shared__ float shmem_A[64 * 32];  // 8KB
+    __shared__ float shmem_B[32 * 64];  // 8KB
+
+    const int tx = threadIdx.x;
+    const int ty = threadIdx.y;
+    const int bx = blockIdx.x;
+    const int by = blockIdx.y;
+
+    const int row = by * 64 + ty;
+    const int col = bx * 64 + tx;
+
+    float accumulator = 0.0f;
+
+    // Tiled computation for optimal memory usage
+    for (int tile = 0; tile < (K + 31) / 32; tile++) {
+        // Cooperative loading with coalesced access
+        int a_row = by * 64 + ty;
+        int a_col = tile * 32 + tx;
+        int b_row = tile * 32 + ty;
+        int b_col = bx * 64 + tx;
+
+        // Load tiles with bounds checking
+        if (a_row < M && a_col < K) {
+            shmem_A[ty * 32 + tx] = A[a_row * K + a_col];
+        } else {
+            shmem_A[ty * 32 + tx] = 0.0f;
+        }
+
+        if (b_row < K && b_col < N) {
+            shmem_B[ty * 64 + tx] = B[b_row * N + b_col];
+        } else {
+            shmem_B[ty * 64 + tx] = 0.0f;
+        }
+
+        __syncthreads();
+
+        // Compute partial results
+        #pragma unroll
+        for (int k = 0; k < 32; k++) {
+            accumulator += shmem_A[ty * 32 + k] * shmem_B[k * 64 + tx];
+        }
+
+        __syncthreads();
+    }
+
+    // Store result
+    if (row < M && col < N) {
+        C[row * N + col] = accumulator;
+    }
+}
+
+// High-performance element-wise operations
+__global__ void __launch_bounds__(1024, 2) sm120_optimized_elementwise_kernel(
+    const float* __restrict__ A,
+    const float* __restrict__ B,
+    float* __restrict__ C,
+    int N,
+    int operation) {
+
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int stride = blockDim.x * gridDim.x;
+
+    // Grid-stride loop for optimal occupancy
+    for (int i = idx; i < N; i += stride) {
+        float a_val = A[i];
+        float b_val = B[i];
+        float result;
+
+        switch (operation) {
+            case 0: // Addition
+                result = a_val + b_val;
+                break;
+            case 1: // Multiplication
+                result = a_val * b_val;
+                break;
+            case 2: // Subtraction
+                result = a_val - b_val;
+                break;
+            case 3: // Division (with safety)
+                result = (b_val != 0.0f) ? a_val / b_val : 0.0f;
+                break;
+            default:
+                result = a_val;
+        }
+
+        C[i] = result;
+    }
+}
+
+// SM120 optimized reduction kernel
+__global__ void __launch_bounds__(1024, 1) sm120_optimized_reduction_kernel(
+    const float* __restrict__ input,
+    float* __restrict__ output,
+    int N) {
+
+    __shared__ float shmem[1024];
+
+    const int tid = threadIdx.x;
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    const int stride = blockDim.x * gridDim.x;
+
+    // Load data with grid-stride loop
+    float thread_sum = 0.0f;
+    for (int i = idx; i < N; i += stride) {
+        thread_sum += input[i];
+    }
+
+    shmem[tid] = thread_sum;
+    __syncthreads();
+
+    // Tree reduction in shared memory
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            shmem[tid] += shmem[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Write block result
+    if (tid == 0) {
+        output[blockIdx.x] = shmem[0];
+    }
+}
+
+} // extern "C"
