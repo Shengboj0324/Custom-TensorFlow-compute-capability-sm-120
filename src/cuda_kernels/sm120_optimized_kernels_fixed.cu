@@ -18,19 +18,9 @@
 #include <cuda/barrier>
 #include <cuda/pipeline>
 #include <cub/cub.cuh>
+#include <algorithm>
 
-// TensorFlow headers
-#include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/core/framework/tensor.h"
-#include "tensorflow/core/platform/stream_executor.h"
-#include "tensorflow/core/util/gpu_kernel_helper.h"
-#include "tensorflow/core/util/gpu_launch_config.h"
-#include "xla/stream_executor/device_memory.h"
-
-using namespace nvcuda;
-namespace cg = cooperative_groups;
-
-// Compatibility wrapper for TensorFlow versions that don't have Cuda2DLaunchConfig
+// Forward declare Cuda2DLaunchConfig before TensorFlow headers
 struct Cuda2DLaunchConfig {
     dim3 block_count;
     dim3 thread_per_block;
@@ -38,6 +28,7 @@ struct Cuda2DLaunchConfig {
     Cuda2DLaunchConfig(dim3 block, dim3 thread) : block_count(block), thread_per_block(thread) {}
 };
 
+// Provide the function that TensorFlow expects
 inline Cuda2DLaunchConfig GetCuda2DLaunchConfig(int xdim, int ydim,
                                                 int block_x_limit = 1024,
                                                 int block_y_limit = 1024) {
@@ -49,6 +40,15 @@ inline Cuda2DLaunchConfig GetCuda2DLaunchConfig(int xdim, int ydim,
 
     return Cuda2DLaunchConfig(dim3(grid_x, grid_y), dim3(block_x, block_y));
 }
+
+// TensorFlow headers (after our compatibility definitions)
+#include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/platform/stream_executor.h"
+#include "tensorflow/core/util/gpu_kernel_helper.h"
+
+using namespace nvcuda;
+namespace cg = cooperative_groups;
 
 // Constants for sm_120 architecture (RTX 50-series specifications)
 constexpr int SM120_WARP_SIZE = 32;

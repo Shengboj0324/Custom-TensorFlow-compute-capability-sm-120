@@ -233,6 +233,17 @@ set_target_properties(sm120_cuda_kernels PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
+# Add compiler flags to suppress TensorFlow/Abseil warnings
+target_compile_options(sm120_cuda_kernels PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:
+        -diag-suppress=2810  # nodiscard attribute warnings
+        -diag-suppress=554   # conversion warnings
+        -diag-suppress=970   # friend declaration warnings
+        -diag-suppress=611   # virtual function warnings
+        -diag-suppress=68    # integer conversion warnings
+    >
+)
+
 # Create TensorFlow operations library
 add_library(sm120_tensorflow_ops SHARED ${SM120_CXX_SOURCES})
 
