@@ -25,6 +25,7 @@ struct Cuda2DLaunchConfig {
     dim3 block_count;
     dim3 thread_per_block;
 
+    Cuda2DLaunchConfig() = default;
     Cuda2DLaunchConfig(dim3 block, dim3 thread) : block_count(block), thread_per_block(thread) {}
 };
 
@@ -41,11 +42,16 @@ inline Cuda2DLaunchConfig GetCuda2DLaunchConfig(int xdim, int ydim,
     return Cuda2DLaunchConfig(dim3(grid_x, grid_y), dim3(block_x, block_y));
 }
 
+// Include TensorFlow compatibility header to suppress deprecation warnings
+#include "tensorflow_compatibility.h"
+
 // TensorFlow headers (after our compatibility definitions)
+TF_SUPPRESS_DEPRECATION_START
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/platform/stream_executor.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
+TF_SUPPRESS_DEPRECATION_END
 
 using namespace nvcuda;
 namespace cg = cooperative_groups;

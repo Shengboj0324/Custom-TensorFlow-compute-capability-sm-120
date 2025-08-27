@@ -41,8 +41,22 @@ find_package(PkgConfig REQUIRED)
 # CUDA architecture settings for sm_120
 set(CMAKE_CUDA_ARCHITECTURES "89;86;80;75")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -use_fast_math -O3 --expt-relaxed-constexpr --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=-Wno-deprecated-declarations")  # Global deprecation suppression
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler=-Wno-error=deprecated-declarations")  # Don't treat as error
 set(CMAKE_CUDA_FLAGS_DEBUG "-g -G -O0")
 set(CMAKE_CUDA_FLAGS_RELEASE "-O3 -DNDEBUG --use_fast_math")
+
+# Global C++ flags to suppress TensorFlow deprecation warnings
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error")
+
+# Print configuration for debugging
+message(STATUS "SM120 Build Configuration:")
+message(STATUS "  CUDA Architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+message(STATUS "  CUDA Flags: ${CMAKE_CUDA_FLAGS}")
+message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS}")
+message(STATUS "  Deprecation warnings suppressed: YES")
 
 # Advanced CUDA compiler flags for future sm_120 support
 # Note: sm_120 not yet supported in CUDA 12.4, using highest available
@@ -233,7 +247,7 @@ set_target_properties(sm120_cuda_kernels PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )
 
-# Add compiler flags to suppress TensorFlow/Abseil warnings
+# Add comprehensive compiler flags to suppress TensorFlow/Abseil warnings
 target_compile_options(sm120_cuda_kernels PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
         -diag-suppress=2810  # nodiscard attribute warnings
@@ -241,6 +255,23 @@ target_compile_options(sm120_cuda_kernels PRIVATE
         -diag-suppress=970   # friend declaration warnings
         -diag-suppress=611   # virtual function warnings
         -diag-suppress=68    # integer conversion warnings
+        -diag-suppress=20012 # host device function warnings
+        -diag-suppress=20014 # template instantiation warnings
+        --expt-relaxed-constexpr  # Allow constexpr in device code
+        --expt-extended-lambda    # Enable extended lambda support
+        --use_fast_math          # Enable fast math for performance
+        -Xcompiler=-Wno-unused-parameter  # Suppress unused parameter warnings
+        -Xcompiler=-Wno-unused-variable   # Suppress unused variable warnings
+        -Xcompiler=-Wno-deprecated-declarations  # CRITICAL: Suppress TensorFlow deprecation warnings
+        -Xcompiler=-Wno-error=deprecated-declarations  # Don't treat deprecation as error
+        -Xcompiler=-Wno-error  # Don't treat any warnings as errors
+    >
+    $<$<COMPILE_LANGUAGE:CXX>:
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-deprecated-declarations
+        -Wno-error=deprecated-declarations
+        -Wno-error
     >
 )
 
@@ -256,6 +287,17 @@ if(TENSORFLOW_FRAMEWORK_LIB)
 endif()
 
 target_link_libraries(sm120_tensorflow_ops ${TF_LIBS_TO_LINK})
+
+# Add the same compiler flags to TensorFlow operations target
+target_compile_options(sm120_tensorflow_ops PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:
+        -Wno-unused-parameter
+        -Wno-unused-variable
+        -Wno-deprecated-declarations
+        -Wno-error=deprecated-declarations
+        -Wno-error
+    >
+)
 
 set_target_properties(sm120_tensorflow_ops PROPERTIES
     POSITION_INDEPENDENT_CODE ON
