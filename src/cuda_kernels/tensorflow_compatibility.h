@@ -8,6 +8,10 @@
 #ifndef TENSORFLOW_COMPATIBILITY_H
 #define TENSORFLOW_COMPATIBILITY_H
 
+// Include required standard library headers
+#include <algorithm>
+#include <cuda_runtime.h>
+
 // Suppress all deprecation warnings before including TensorFlow headers
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"

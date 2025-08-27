@@ -1,12 +1,13 @@
 /*
  * Implementation file for sm_120 kernel launchers
- * 
+ *
  * This file contains the actual implementations of the kernel launcher
  * functions declared in sm120_kernel_launcher.h
  */
 
-#include "src/cuda_kernels/sm120_kernel_launcher.h"
-#include "src/cuda_kernels/sm120_optimized_kernels.cu"
+// Include compatibility header first to suppress deprecation warnings
+#include "src/cuda_kernels/tensorflow_compatibility.h"
+#include "src/cuda_kernels/sm120_kernel_launcher_fixed.h"
 
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
