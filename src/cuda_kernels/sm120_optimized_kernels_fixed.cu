@@ -770,82 +770,8 @@ __global__ void __launch_bounds__(256, 4) sm120_optimized_transpose(
     }
 }
 
-// Layer normalization kernel for SM120
-template<typename T>
-__global__ void __launch_bounds__(256, 4) sm120_layer_norm_kernel(
-    const T* __restrict__ input,
-    const T* __restrict__ gamma,
-    const T* __restrict__ beta,
-    T* __restrict__ output,
-    float* __restrict__ mean,
-    float* __restrict__ variance,
-    int batch_size, int feature_size, float epsilon) {
-
-    int batch_idx = blockIdx.x;
-    int tid = threadIdx.x;
-
-    if (batch_idx >= batch_size) return;
-
-    const T* batch_input = input + batch_idx * feature_size;
-    T* batch_output = output + batch_idx * feature_size;
-
-    // Shared memory for reduction
-    __shared__ float shared_sum[256];
-    __shared__ float shared_sum_sq[256];
-
-    // Compute mean
-    float sum = 0.0f;
-    for (int i = tid; i < feature_size; i += blockDim.x) {
-        float val = static_cast<float>(batch_input[i]);
-        sum += val;
-    }
-    shared_sum[tid] = sum;
-    __syncthreads();
-
-    // Reduce sum
-    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            shared_sum[tid] += shared_sum[tid + stride];
-        }
-        __syncthreads();
-    }
-
-    float batch_mean = shared_sum[0] / feature_size;
-    if (tid == 0 && mean) {
-        mean[batch_idx] = batch_mean;
-    }
-
-    // Compute variance
-    float sum_sq = 0.0f;
-    for (int i = tid; i < feature_size; i += blockDim.x) {
-        float val = static_cast<float>(batch_input[i]) - batch_mean;
-        sum_sq += val * val;
-    }
-    shared_sum_sq[tid] = sum_sq;
-    __syncthreads();
-
-    // Reduce sum of squares
-    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
-        if (tid < stride) {
-            shared_sum_sq[tid] += shared_sum_sq[tid + stride];
-        }
-        __syncthreads();
-    }
-
-    float batch_variance = shared_sum_sq[0] / feature_size;
-    if (tid == 0 && variance) {
-        variance[batch_idx] = batch_variance;
-    }
-
-    float inv_std = rsqrtf(batch_variance + epsilon);
-
-    // Apply normalization
-    for (int i = tid; i < feature_size; i += blockDim.x) {
-        float normalized = (static_cast<float>(batch_input[i]) - batch_mean) * inv_std;
-        float scaled = normalized * static_cast<float>(gamma[i]) + static_cast<float>(beta[i]);
-        batch_output[i] = static_cast<T>(scaled);
-    }
-}
+// Layer normalization kernel is defined in sm120_kernel_implementations.cu
+// Removed duplicate definition to avoid overload ambiguity
 
 // End of re-enabled kernels
 
