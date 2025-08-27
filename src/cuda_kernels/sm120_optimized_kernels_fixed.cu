@@ -20,29 +20,7 @@
 #include <cub/cub.cuh>
 #include <algorithm>
 
-// Forward declare Cuda2DLaunchConfig before TensorFlow headers
-struct Cuda2DLaunchConfig {
-    dim3 block_count;
-    dim3 thread_per_block;
-
-    Cuda2DLaunchConfig() = default;
-    Cuda2DLaunchConfig(dim3 block, dim3 thread) : block_count(block), thread_per_block(thread) {}
-};
-
-// Provide the function that TensorFlow expects
-inline Cuda2DLaunchConfig GetCuda2DLaunchConfig(int xdim, int ydim,
-                                                int block_x_limit = 1024,
-                                                int block_y_limit = 1024) {
-    int block_x = std::min(block_x_limit, xdim);
-    int block_y = std::min(block_y_limit, ydim);
-
-    int grid_x = (xdim + block_x - 1) / block_x;
-    int grid_y = (ydim + block_y - 1) / block_y;
-
-    return Cuda2DLaunchConfig(dim3(grid_x, grid_y), dim3(block_x, block_y));
-}
-
-// Include TensorFlow compatibility header to suppress deprecation warnings
+// Include TensorFlow compatibility header to get Cuda2DLaunchConfig and suppress deprecation warnings
 #include "tensorflow_compatibility.h"
 
 // TensorFlow headers (after our compatibility definitions)
