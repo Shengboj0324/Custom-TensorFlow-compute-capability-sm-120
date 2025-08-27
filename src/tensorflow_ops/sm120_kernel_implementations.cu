@@ -5,20 +5,38 @@
  * functions declared in sm120_kernel_launcher.h
  */
 
-// Include compatibility header first to suppress deprecation warnings
-#include "cuda_kernels/tensorflow_compatibility.h"
-#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
-
-// Include the actual kernel implementations
-#include "cuda_kernels/sm120_optimized_kernels_fixed.cu"
-
+// Minimal includes - no TensorFlow headers in CUDA compilation unit
 #include <cuda_runtime.h>
 #include <cuda_fp16.h>
-#include <cuda_profiler_api.h>
-#include <cooperative_groups.h>
-#include <cub/cub.cuh>
-#include <vector>
 #include <algorithm>
+#include <vector>
+
+// Include kernel implementations
+#include "cuda_kernels/sm120_optimized_kernels_fixed.cu"
+
+// Minimal type definitions needed for compilation
+enum class ActivationType {
+    RELU = 0,
+    LEAKY_RELU = 1,
+    ELU = 2,
+    SELU = 3,
+    GELU = 4,
+    SWISH = 5,
+    MISH = 6,
+    TANH = 7,
+    SIGMOID = 8,
+    SOFTMAX = 9
+};
+
+enum class ReductionType {
+    SUM = 0,
+    MEAN = 1,
+    MAX = 2,
+    MIN = 3,
+    PROD = 4,
+    L1_NORM = 5,
+    L2_NORM = 6
+};
 
 using namespace nvcuda;
 namespace cg = cooperative_groups;
