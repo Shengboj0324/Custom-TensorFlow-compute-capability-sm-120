@@ -24,9 +24,31 @@
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/platform/stream_executor.h"
 #include "tensorflow/core/util/gpu_kernel_helper.h"
+#include "tensorflow/core/util/gpu_launch_config.h"
+#include "xla/stream_executor/device_memory.h"
 
 using namespace nvcuda;
 namespace cg = cooperative_groups;
+
+// Compatibility wrapper for TensorFlow versions that don't have Cuda2DLaunchConfig
+struct Cuda2DLaunchConfig {
+    dim3 block_count;
+    dim3 thread_per_block;
+
+    Cuda2DLaunchConfig(dim3 block, dim3 thread) : block_count(block), thread_per_block(thread) {}
+};
+
+inline Cuda2DLaunchConfig GetCuda2DLaunchConfig(int xdim, int ydim,
+                                                int block_x_limit = 1024,
+                                                int block_y_limit = 1024) {
+    int block_x = std::min(block_x_limit, xdim);
+    int block_y = std::min(block_y_limit, ydim);
+
+    int grid_x = (xdim + block_x - 1) / block_x;
+    int grid_y = (ydim + block_y - 1) / block_y;
+
+    return Cuda2DLaunchConfig(dim3(grid_x, grid_y), dim3(block_x, block_y));
+}
 
 // Constants for sm_120 architecture (RTX 50-series specifications)
 constexpr int SM120_WARP_SIZE = 32;
