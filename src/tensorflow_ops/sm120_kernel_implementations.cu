@@ -13,9 +13,15 @@
 #include "cuda_kernels/sm120_optimized_kernels_fixed.cu"
 
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <cuda_profiler_api.h>
 #include <cooperative_groups.h>
 #include <cub/cub.cuh>
+#include <vector>
+#include <algorithm>
+
+using namespace nvcuda;
+namespace cg = cooperative_groups;
 
 namespace tensorflow {
 namespace sm120_kernels {
@@ -234,7 +240,7 @@ cudaError_t LaunchSM120FusedActivation(
     ActivationType activation_type,
     cudaStream_t stream) {
     
-    dim3 block = GetOptimalBlockSize(size);
+    dim3 block = GetOptimalBlockSize(size, 1024);
     dim3 grid = GetOptimalGridSize(size, block);
     
     sm120_fused_activation_kernel<<<grid, block, 0, stream>>>(
@@ -247,19 +253,28 @@ cudaError_t LaunchSM120FusedActivation(
 // Reduction Implementations
 // ============================================================================
 
+// Simple reduction operation struct
+template<typename T>
+struct SumOp {
+    __device__ T operator()(const T& a, const T& b) const {
+        return a + b;
+    }
+};
+
 template<typename T>
 cudaError_t LaunchSM120Reduction(
     const T* input, T* output,
     int size, int reduction_size,
     ReductionType reduction_type,
     cudaStream_t stream) {
-    
+
     dim3 block(256);
     dim3 grid(std::min((size + block.x - 1) / block.x, 65535));
-    
-    sm120_optimized_reduction_kernel<<<grid, block, 0, stream>>>(
-        input, output, size, reduction_size);
-    
+
+    SumOp<T> sum_op;
+    sm120_optimized_reduction_kernel<T, SumOp<T>><<<grid, block, 0, stream>>>(
+        input, output, size, sum_op);
+
     return cudaGetLastError();
 }
 
@@ -372,19 +387,21 @@ __global__ void sm120_layer_norm_kernel(
     
     if (batch_idx >= batch_size) return;
     
-    // Shared memory for reduction
-    extern __shared__ float sdata[];
-    
+    // Shared memory for reduction - fixed size to avoid bounds issues
+    __shared__ float sdata[256];
+
     const T* batch_input = input + batch_idx * feature_size;
     T* batch_output = output + batch_idx * feature_size;
-    
+
     // Compute mean
     float sum = 0.0f;
     for (int i = tid; i < feature_size; i += blockDim.x) {
         sum += static_cast<float>(batch_input[i]);
     }
-    
-    sdata[tid] = sum;
+
+    if (tid < 256) {
+        sdata[tid] = sum;
+    }
     __syncthreads();
     
     // Reduce sum
@@ -409,7 +426,9 @@ __global__ void sm120_layer_norm_kernel(
         var_sum += diff * diff;
     }
     
-    sdata[tid] = var_sum;
+    if (tid < 256) {
+        sdata[tid] = var_sum;
+    }
     __syncthreads();
     
     // Reduce variance sum
@@ -505,6 +524,19 @@ template cudaError_t LaunchSM120Transpose<half>(const half*, half*, int, int, cu
 // Normalization
 template cudaError_t LaunchSM120LayerNorm<float>(const float*, const float*, const float*, float*, float*, float*, int, int, float, cudaStream_t);
 template cudaError_t LaunchSM120LayerNorm<half>(const half*, const half*, const half*, half*, half*, half*, int, int, float, cudaStream_t);
+
+// Additional missing instantiations
+template cudaError_t LaunchSM120DepthwiseConv2D<float>(const float*, const float*, float*, int, int, int, int, int, int, int, int, cudaStream_t);
+template cudaError_t LaunchSM120DepthwiseConv2D<half>(const half*, const half*, half*, int, int, int, int, int, int, int, int, cudaStream_t);
+
+template cudaError_t LaunchSM120MultiHeadAttention<float>(const float*, const float*, const float*, float*, int, int, int, int, cudaStream_t);
+template cudaError_t LaunchSM120MultiHeadAttention<half>(const half*, const half*, const half*, half*, int, int, int, int, cudaStream_t);
+
+template cudaError_t LaunchSM120MemcpyOptimized<float>(const float*, float*, int, cudaStream_t);
+template cudaError_t LaunchSM120MemcpyOptimized<half>(const half*, half*, int, cudaStream_t);
+
+template cudaError_t LaunchSM120BatchNorm<float>(const float*, const float*, const float*, const float*, const float*, float*, int, int, int, int, float, cudaStream_t);
+template cudaError_t LaunchSM120BatchNorm<half>(const half*, const half*, const half*, const half*, const half*, half*, int, int, int, int, float, cudaStream_t);
 
 } // namespace sm120_kernels
 } // namespace tensorflow
