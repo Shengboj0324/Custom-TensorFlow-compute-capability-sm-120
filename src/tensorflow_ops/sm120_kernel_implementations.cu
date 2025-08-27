@@ -9,6 +9,9 @@
 #include "cuda_kernels/tensorflow_compatibility.h"
 #include "cuda_kernels/sm120_kernel_launcher_fixed.h"
 
+// Include the actual kernel implementations
+#include "cuda_kernels/sm120_optimized_kernels_fixed.cu"
+
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
 #include <cooperative_groups.h>

@@ -11,9 +11,17 @@
  */
 
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
+#include <mma.h>
+#include <cooperative_groups.h>
+#include <cub/cub.cuh>
 #include <algorithm>
 
 // Pure CUDA implementation - no TensorFlow headers needed in .cu file
+
+using namespace nvcuda;
+namespace cg = cooperative_groups;
 
 // Constants for sm_120 architecture (RTX 50-series specifications)
 constexpr int SM120_WARP_SIZE = 32;
@@ -119,11 +127,11 @@ __global__ void __launch_bounds__(1024, 2) sm120_elementwise_kernel(
     }
 }
 
-#if 0  // Disable complex template code that causes compilation issues
+// Re-enabled kernels with compatibility fixes
 
 // Advanced matrix multiplication kernel with sm_120 optimizations
 template<typename T, typename AccumT = float>
-__global__ void __launch_bounds__(256, 4) sm120_advanced_matmul_kernel(
+__global__ void __launch_bounds__(256, 4) sm120_optimized_matmul_kernel(
     const T* __restrict__ A,
     const T* __restrict__ B,
     T* __restrict__ C,
@@ -282,7 +290,7 @@ __global__ void __launch_bounds__(256, 4) sm120_advanced_matmul_kernel(
 // ============================================================================
 
 template<typename T, typename AccumT = float>
-__global__ void __launch_bounds__(512, 2) sm120_advanced_conv2d_kernel(
+__global__ void __launch_bounds__(512, 2) sm120_optimized_conv2d_kernel(
     const T* __restrict__ input,
     const T* __restrict__ filter,
     T* __restrict__ output,
@@ -405,7 +413,7 @@ __global__ void __launch_bounds__(512, 2) sm120_advanced_conv2d_kernel(
 // ============================================================================
 
 template<typename T, typename ReductionOp>
-__global__ void __launch_bounds__(1024, 1) sm120_advanced_reduction_kernel(
+__global__ void __launch_bounds__(1024, 1) sm120_optimized_reduction_kernel(
     const T* __restrict__ input,
     T* __restrict__ output,
     int size,
@@ -447,7 +455,7 @@ struct MaxOp {
 // Advanced Mixed Precision Operations
 // ============================================================================
 
-__global__ void __launch_bounds__(256, 8) sm120_mixed_precision_advanced_gemm(
+__global__ void __launch_bounds__(256, 8) sm120_mixed_precision_gemm(
     const half* __restrict__ A,
     const half* __restrict__ B,
     float* __restrict__ C,
@@ -505,7 +513,7 @@ __global__ void __launch_bounds__(256, 8) sm120_mixed_precision_advanced_gemm(
 // ============================================================================
 
 template<typename T>
-__global__ void __launch_bounds__(1024, 2) sm120_advanced_activation_kernel(
+__global__ void __launch_bounds__(1024, 2) sm120_fused_activation_kernel(
     const T* __restrict__ input,
     T* __restrict__ output,
     int size,
@@ -571,7 +579,7 @@ __global__ void __launch_bounds__(1024, 2) sm120_advanced_activation_kernel(
 // ============================================================================
 
 template<typename T>
-__global__ void __launch_bounds__(256, 4) sm120_flash_attention_kernel(
+__global__ void __launch_bounds__(256, 4) sm120_scaled_dot_product_attention(
     const T* __restrict__ queries,
     const T* __restrict__ keys,
     const T* __restrict__ values,
@@ -728,7 +736,118 @@ __global__ void __launch_bounds__(256, 4) sm120_flash_attention_kernel(
     }
 }
 
-#endif  // End of disabled complex template code
+// ============================================================================
+// Missing Kernels - Transpose and Layer Normalization
+// ============================================================================
+
+// Optimized transpose kernel for SM120
+template<typename T>
+__global__ void __launch_bounds__(256, 4) sm120_optimized_transpose(
+    const T* __restrict__ input,
+    T* __restrict__ output,
+    int rows, int cols) {
+
+    // Use SM120's 160KB shared memory efficiently
+    __shared__ T tile[32][33]; // 33 to avoid bank conflicts
+
+    int x = blockIdx.x * 32 + threadIdx.x;
+    int y = blockIdx.y * 32 + threadIdx.y;
+
+    // Load tile from input
+    if (x < cols && y < rows) {
+        tile[threadIdx.y][threadIdx.x] = input[y * cols + x];
+    }
+
+    __syncthreads();
+
+    // Transpose coordinates
+    x = blockIdx.y * 32 + threadIdx.x;
+    y = blockIdx.x * 32 + threadIdx.y;
+
+    // Store transposed tile to output
+    if (x < rows && y < cols) {
+        output[y * rows + x] = tile[threadIdx.x][threadIdx.y];
+    }
+}
+
+// Layer normalization kernel for SM120
+template<typename T>
+__global__ void __launch_bounds__(256, 4) sm120_layer_norm_kernel(
+    const T* __restrict__ input,
+    const T* __restrict__ gamma,
+    const T* __restrict__ beta,
+    T* __restrict__ output,
+    float* __restrict__ mean,
+    float* __restrict__ variance,
+    int batch_size, int feature_size, float epsilon) {
+
+    int batch_idx = blockIdx.x;
+    int tid = threadIdx.x;
+
+    if (batch_idx >= batch_size) return;
+
+    const T* batch_input = input + batch_idx * feature_size;
+    T* batch_output = output + batch_idx * feature_size;
+
+    // Shared memory for reduction
+    __shared__ float shared_sum[256];
+    __shared__ float shared_sum_sq[256];
+
+    // Compute mean
+    float sum = 0.0f;
+    for (int i = tid; i < feature_size; i += blockDim.x) {
+        float val = static_cast<float>(batch_input[i]);
+        sum += val;
+    }
+    shared_sum[tid] = sum;
+    __syncthreads();
+
+    // Reduce sum
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            shared_sum[tid] += shared_sum[tid + stride];
+        }
+        __syncthreads();
+    }
+
+    float batch_mean = shared_sum[0] / feature_size;
+    if (tid == 0 && mean) {
+        mean[batch_idx] = batch_mean;
+    }
+
+    // Compute variance
+    float sum_sq = 0.0f;
+    for (int i = tid; i < feature_size; i += blockDim.x) {
+        float val = static_cast<float>(batch_input[i]) - batch_mean;
+        sum_sq += val * val;
+    }
+    shared_sum_sq[tid] = sum_sq;
+    __syncthreads();
+
+    // Reduce sum of squares
+    for (int stride = blockDim.x / 2; stride > 0; stride >>= 1) {
+        if (tid < stride) {
+            shared_sum_sq[tid] += shared_sum_sq[tid + stride];
+        }
+        __syncthreads();
+    }
+
+    float batch_variance = shared_sum_sq[0] / feature_size;
+    if (tid == 0 && variance) {
+        variance[batch_idx] = batch_variance;
+    }
+
+    float inv_std = rsqrtf(batch_variance + epsilon);
+
+    // Apply normalization
+    for (int i = tid; i < feature_size; i += blockDim.x) {
+        float normalized = (static_cast<float>(batch_input[i]) - batch_mean) * inv_std;
+        float scaled = normalized * static_cast<float>(gamma[i]) + static_cast<float>(beta[i]);
+        batch_output[i] = static_cast<T>(scaled);
+    }
+}
+
+// End of re-enabled kernels
 
 } // namespace sm120_kernels
 } // namespace tensorflow
