@@ -30,21 +30,7 @@ namespace sm120_kernels {
 // Utility Functions Implementation
 // ============================================================================
 
-bool IsSM120Supported() {
-    int device_count;
-    cudaGetDeviceCount(&device_count);
-    
-    for (int i = 0; i < device_count; i++) {
-        cudaDeviceProp prop;
-        cudaGetDeviceProperties(&prop, i);
-        
-        if (prop.major == 12 && prop.minor == 0) {
-            return true;
-        }
-    }
-    
-    return false;
-}
+// IsSM120Supported function removed - already defined in header
 
 dim3 GetOptimalBlockSize(int size, int max_threads) {
     int threads = std::min(size, max_threads);
@@ -70,26 +56,10 @@ dim3 GetOptimalGridSize(int size, dim3 block_size) {
     return dim3(blocks, 1, 1);
 }
 
-SM120Capabilities GetSM120Capabilities(int device_id) {
-    SM120Capabilities caps = {};
-    
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, device_id);
-    
-    caps.major_version = prop.major;
-    caps.minor_version = prop.minor;
-    caps.supports_tensor_cores_5th_gen = (prop.major == 12 && prop.minor == 0);
-    caps.supports_enhanced_l2_cache = (prop.major >= 12);
-    caps.supports_cooperative_groups_v2 = (prop.major >= 12);
-    caps.shared_memory_per_sm = prop.sharedMemPerMultiprocessor;
-    caps.l2_cache_size = prop.l2CacheSize;
-    caps.max_threads_per_sm = prop.maxThreadsPerMultiProcessor;
-    
-    return caps;
-}
+// SM120Capabilities function removed - struct not defined in header
 
 float BenchmarkSM120MemoryBandwidth(int size_mb) {
-    if (!IsSM120Supported()) {
+    if (!IsSM120Supported(0)) {
         return 0.0f;
     }
     
@@ -146,7 +116,7 @@ cudaError_t LaunchSM120MatMul(
     dim3 block(TILE_SIZE, TILE_SIZE);
     dim3 grid((N + TILE_SIZE - 1) / TILE_SIZE, (M + TILE_SIZE - 1) / TILE_SIZE);
     
-    sm120_optimized_matmul_kernel<<<grid, block, 0, stream>>>(
+    sm120_optimized_matmul_kernel<T, float><<<grid, block, 0, stream>>>(
         A, B, C, M, N, K, alpha, beta);
     
     return cudaGetLastError();
@@ -192,7 +162,7 @@ cudaError_t LaunchSM120Conv2D(
     
     size_t shared_mem_size = (32 * 32 * 16 + 32 * 32 * 16) * sizeof(T);
     
-    sm120_optimized_conv2d_kernel<<<grid, block, shared_mem_size, stream>>>(
+    sm120_optimized_conv2d_kernel<T, float><<<grid, block, shared_mem_size, stream>>>(
         input, filter, output,
         batch_size, input_height, input_width, input_channels,
         output_height, output_width, output_channels,
@@ -243,7 +213,7 @@ cudaError_t LaunchSM120FusedActivation(
     dim3 block = GetOptimalBlockSize(size, 1024);
     dim3 grid = GetOptimalGridSize(size, block);
     
-    sm120_fused_activation_kernel<<<grid, block, 0, stream>>>(
+    sm120_fused_activation_kernel<T><<<grid, block, 0, stream>>>(
         input, output, size, static_cast<int>(activation_type));
     
     return cudaGetLastError();
@@ -255,7 +225,7 @@ cudaError_t LaunchSM120FusedActivation(
 
 // Simple reduction operation struct
 template<typename T>
-struct SumOp {
+struct SM120SumOp {
     __device__ T operator()(const T& a, const T& b) const {
         return a + b;
     }
@@ -269,10 +239,10 @@ cudaError_t LaunchSM120Reduction(
     cudaStream_t stream) {
 
     dim3 block(256);
-    dim3 grid(std::min((size + block.x - 1) / block.x, 65535));
+    dim3 grid(std::min(static_cast<int>((size + block.x - 1) / block.x), 65535));
 
-    SumOp<T> sum_op;
-    sm120_optimized_reduction_kernel<T, SumOp<T>><<<grid, block, 0, stream>>>(
+    SM120SumOp<T> sum_op;
+    sm120_optimized_reduction_kernel<T, SM120SumOp<T>><<<grid, block, 0, stream>>>(
         input, output, size, sum_op);
 
     return cudaGetLastError();
@@ -295,7 +265,7 @@ cudaError_t LaunchSM120ScaledDotProductAttention(
     
     size_t shared_mem_size = seq_len * sizeof(float);
     
-    sm120_scaled_dot_product_attention<<<grid, block, shared_mem_size, stream>>>(
+    sm120_scaled_dot_product_attention<T><<<grid, block, shared_mem_size, stream>>>(
         queries, keys, values, output, attention_weights,
         batch_size, seq_len, head_dim, scale);
     
@@ -350,7 +320,7 @@ cudaError_t LaunchSM120Transpose(
     dim3 block(32, 32);
     dim3 grid((cols + block.x - 1) / block.x, (rows + block.y - 1) / block.y);
     
-    sm120_optimized_transpose<<<grid, block, 0, stream>>>(
+    sm120_optimized_transpose<T><<<grid, block, 0, stream>>>(
         input, output, rows, cols);
     
     return cudaGetLastError();
@@ -469,7 +439,7 @@ cudaError_t LaunchSM120LayerNorm(
     
     size_t shared_mem_size = block.x * sizeof(float);
     
-    sm120_layer_norm_kernel<<<grid, block, shared_mem_size, stream>>>(
+    sm120_layer_norm_kernel<T><<<grid, block, shared_mem_size, stream>>>(
         input, gamma, beta, output, mean, variance,
         batch_size, feature_size, epsilon);
     
@@ -526,8 +496,8 @@ template cudaError_t LaunchSM120LayerNorm<float>(const float*, const float*, con
 template cudaError_t LaunchSM120LayerNorm<half>(const half*, const half*, const half*, half*, half*, half*, int, int, float, cudaStream_t);
 
 // Additional missing instantiations
-template cudaError_t LaunchSM120DepthwiseConv2D<float>(const float*, const float*, float*, int, int, int, int, int, int, int, int, cudaStream_t);
-template cudaError_t LaunchSM120DepthwiseConv2D<half>(const half*, const half*, half*, int, int, int, int, int, int, int, int, cudaStream_t);
+template cudaError_t LaunchSM120DepthwiseConv2D<float>(const float*, const float*, float*, int, int, int, int, int, int, int, int, int, int, cudaStream_t);
+template cudaError_t LaunchSM120DepthwiseConv2D<half>(const half*, const half*, half*, int, int, int, int, int, int, int, int, int, int, cudaStream_t);
 
 template cudaError_t LaunchSM120MultiHeadAttention<float>(const float*, const float*, const float*, float*, int, int, int, int, cudaStream_t);
 template cudaError_t LaunchSM120MultiHeadAttention<half>(const half*, const half*, const half*, half*, int, int, int, int, cudaStream_t);
