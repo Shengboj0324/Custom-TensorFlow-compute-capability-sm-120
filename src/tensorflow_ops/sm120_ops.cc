@@ -14,7 +14,7 @@
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 
 #if GOOGLE_CUDA
-#include "src/cuda_kernels/sm120_kernel_launcher.h"
+#include "cuda_kernels/sm120_kernel_launcher.h"
 #endif
 
 namespace tensorflow {

@@ -24,7 +24,7 @@
 #include "tensorflow/core/lib/core/errors.h"
 
 #if GOOGLE_CUDA
-#include "src/cuda_kernels/sm120_kernel_launcher_fixed.h"
+#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
 #include "cuda_runtime.h"
 #include "cublas_v2.h"
 #include "cudnn.h"

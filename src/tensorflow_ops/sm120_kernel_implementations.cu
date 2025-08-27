@@ -6,8 +6,8 @@
  */
 
 // Include compatibility header first to suppress deprecation warnings
-#include "src/cuda_kernels/tensorflow_compatibility.h"
-#include "src/cuda_kernels/sm120_kernel_launcher_fixed.h"
+#include "cuda_kernels/tensorflow_compatibility.h"
+#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
 
 #include <cuda_runtime.h>
 #include <cuda_profiler_api.h>
