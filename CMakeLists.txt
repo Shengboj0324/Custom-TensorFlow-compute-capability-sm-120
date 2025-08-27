@@ -207,22 +207,45 @@ if(HAVE_SM120_GPU)
     add_definitions(-DHAVE_SM120_GPU=1)
 endif()
 
-# Source files
-set(SM120_CUDA_SOURCES
-    src/cuda_kernels/sm120_optimized_kernels_fixed.cu
-    src/tensorflow_ops/sm120_kernel_implementations.cu
+# ============================================================================
+# NEW LAYERED ARCHITECTURE SOURCE FILES
+# ============================================================================
+
+# Pure CUDA kernel layer (no external dependencies)
+set(SM120_PURE_CUDA_SOURCES
+    src/cuda_kernels/sm120_pure_kernels.cu
 )
 
-set(SM120_CXX_SOURCES
-    src/tensorflow_ops/sm120_ops_fixed.cc
+# C interface layer (calls pure CUDA kernels)
+set(SM120_C_INTERFACE_SOURCES
+    src/cuda_kernels/sm120_c_interface.cu
 )
 
+# TensorFlow wrapper layer (calls C interface)
+set(SM120_TENSORFLOW_SOURCES
+    src/tensorflow_ops/sm120_tensorflow_ops.cc
+    src/tensorflow_ops/sm120_ops.cc
+    src/tensorflow_ops/sm120_complete_ops.cc
+    src/tensorflow_ops/sm120_gradients.cc
+)
+
+# Header files
 set(SM120_HEADERS
-    src/cuda_kernels/sm120_kernel_launcher_fixed.h
+    src/cuda_kernels/sm120_c_interface.h
 )
 
-# Create CUDA library for kernels
-add_library(sm120_cuda_kernels SHARED ${SM120_CUDA_SOURCES})
+# ============================================================================
+# CREATE LAYERED LIBRARIES
+# ============================================================================
+
+# Step 1: Create pure CUDA kernels library (no external dependencies)
+add_library(sm120_pure_kernels SHARED ${SM120_PURE_CUDA_SOURCES})
+
+# Step 2: Create C interface library (depends on pure kernels)
+add_library(sm120_c_interface SHARED ${SM120_C_INTERFACE_SOURCES})
+
+# Step 3: Create TensorFlow ops library (depends on C interface)
+add_library(sm120_tensorflow_ops SHARED ${SM120_TENSORFLOW_SOURCES})
 
 # Link CUDA libraries (only if found)
 set(CUDA_LIBS_TO_LINK
@@ -239,33 +262,69 @@ if(CUDA_CUDNN_LIBRARY)
     list(APPEND CUDA_LIBS_TO_LINK ${CUDA_CUDNN_LIBRARY})
 endif()
 
-target_link_libraries(sm120_cuda_kernels ${CUDA_LIBS_TO_LINK})
+# ============================================================================
+# CONFIGURE LIBRARY PROPERTIES AND LINKING
+# ============================================================================
 
-set_target_properties(sm120_cuda_kernels PROPERTIES
+# Configure pure CUDA kernels library
+set_target_properties(sm120_pure_kernels PROPERTIES
     CUDA_RESOLVE_DEVICE_SYMBOLS ON
     CUDA_SEPARABLE_COMPILATION ON
     POSITION_INDEPENDENT_CODE ON
 )
 
-# Add comprehensive compiler flags to suppress TensorFlow/Abseil warnings
-target_compile_options(sm120_cuda_kernels PRIVATE
+target_link_libraries(sm120_pure_kernels
+    ${CUDA_CUDART_LIBRARY}
+)
+
+# Configure C interface library
+set_target_properties(sm120_c_interface PROPERTIES
+    CUDA_RESOLVE_DEVICE_SYMBOLS ON
+    CUDA_SEPARABLE_COMPILATION ON
+    POSITION_INDEPENDENT_CODE ON
+)
+
+target_link_libraries(sm120_c_interface
+    sm120_pure_kernels
+    ${CUDA_CUDART_LIBRARY}
+)
+
+# Configure TensorFlow ops library
+set_target_properties(sm120_tensorflow_ops PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
+target_link_libraries(sm120_tensorflow_ops
+    sm120_c_interface
+    ${CUDA_CUDART_LIBRARY}
+)
+
+# ============================================================================
+# COMPILER FLAGS FOR EACH LAYER
+# ============================================================================
+
+# Pure CUDA kernels - minimal flags, no TensorFlow dependencies
+target_compile_options(sm120_pure_kernels PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:
-        -diag-suppress=2810  # nodiscard attribute warnings
-        -diag-suppress=554   # conversion warnings
-        -diag-suppress=970   # friend declaration warnings
-        -diag-suppress=611   # virtual function warnings
-        -diag-suppress=68    # integer conversion warnings
-        -diag-suppress=20012 # host device function warnings
-        -diag-suppress=20014 # template instantiation warnings
-        --expt-relaxed-constexpr  # Allow constexpr in device code
-        --expt-extended-lambda    # Enable extended lambda support
-        --use_fast_math          # Enable fast math for performance
-        -Xcompiler=-Wno-unused-parameter  # Suppress unused parameter warnings
-        -Xcompiler=-Wno-unused-variable   # Suppress unused variable warnings
-        -Xcompiler=-Wno-deprecated-declarations  # CRITICAL: Suppress TensorFlow deprecation warnings
-        -Xcompiler=-Wno-error=deprecated-declarations  # Don't treat deprecation as error
-        -Xcompiler=-Wno-error  # Don't treat any warnings as errors
+        --expt-relaxed-constexpr
+        --expt-extended-lambda
+        --use_fast_math
+        -Xcompiler=-fPIC
     >
+)
+
+# C interface - minimal flags
+target_compile_options(sm120_c_interface PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:
+        --expt-relaxed-constexpr
+        --expt-extended-lambda
+        --use_fast_math
+        -Xcompiler=-fPIC
+    >
+)
+
+# TensorFlow ops - comprehensive flags to suppress TensorFlow warnings
+target_compile_options(sm120_tensorflow_ops PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:
         -Wno-unused-parameter
         -Wno-unused-variable
@@ -274,24 +333,6 @@ target_compile_options(sm120_cuda_kernels PRIVATE
         -Wno-error
     >
 )
-
-# Create TensorFlow operations library
-add_library(sm120_tensorflow_ops SHARED ${SM120_CXX_SOURCES})
-
-# Link TensorFlow libraries (only if found)
-set(TF_LIBS_TO_LINK sm120_cuda_kernels)
-
-# Add TensorFlow framework library if found
-if(TENSORFLOW_FRAMEWORK_LIB)
-    list(APPEND TF_LIBS_TO_LINK ${TENSORFLOW_FRAMEWORK_LIB})
-endif()
-
-target_link_libraries(sm120_tensorflow_ops ${TF_LIBS_TO_LINK})
-
-# Add the same compiler flags to TensorFlow operations target
-target_compile_options(sm120_tensorflow_ops PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:
-        -Wno-unused-parameter
         -Wno-unused-variable
         -Wno-deprecated-declarations
         -Wno-error=deprecated-declarations
@@ -393,8 +434,12 @@ if(DOXYGEN_FOUND)
     )
 endif()
 
-# Installation
-install(TARGETS sm120_cuda_kernels sm120_tensorflow_ops
+# ============================================================================
+# INSTALLATION
+# ============================================================================
+
+# Install all three layers
+install(TARGETS sm120_pure_kernels sm120_c_interface sm120_tensorflow_ops
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin

@@ -14,7 +14,10 @@
 #include "tensorflow/core/common_runtime/gpu/gpu_event_mgr.h"
 
 #if GOOGLE_CUDA
-#include "cuda_kernels/sm120_kernel_launcher.h"
+extern "C" {
+#include "cuda_kernels/sm120_c_interface.h"
+}
+#include "sm120_stream_utils.h"
 #endif
 
 namespace tensorflow {
@@ -56,6 +59,12 @@ class SM120MatMulOp : public OpKernel {
   }
 
   void Compute(OpKernelContext* context) override {
+    // Verify RTX 50-series compatibility
+    int device_id = sm120_utils::GetGpuDeviceId(context);
+    OP_REQUIRES(context, sm120_verify_rtx50_compatibility(device_id),
+               errors::InvalidArgument("RTX 50-series GPU required. ",
+                                     sm120_get_rtx50_report(device_id)));
+
     const Tensor& a = context->input(0);
     const Tensor& b = context->input(1);
 
@@ -84,13 +93,16 @@ class SM120MatMulOp : public OpKernel {
     auto b_ptr = b.flat<T>().data();
     auto output_ptr = output->flat<T>().data();
 
-    cudaError_t result = sm120_kernels::LaunchSM120MatMul<T>(
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaStream_t cuda_stream = sm120_utils::GetCudaStreamSafe(context);
+
+    cudaError_t result = sm120_launch_matmul(
         a_ptr, b_ptr, output_ptr,
         static_cast<int>(a_rows),
         static_cast<int>(b_cols),
         static_cast<int>(a_cols),
         1.0f, 0.0f,
-        stream);
+        dtype, cuda_stream);
 
     OP_REQUIRES(context, result == cudaSuccess,
                 errors::Internal("SM120MatMul kernel launch failed: ", cudaGetErrorString(result)));
@@ -201,13 +213,14 @@ class SM120Conv2DOp : public OpKernel {
     auto filter_ptr = filter.flat<T>().data();
     auto output_ptr = output->flat<T>().data();
 
-    cudaError_t result = sm120_kernels::LaunchSM120Conv2D<T>(
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaError_t result = sm120_launch_conv2d(
         input_ptr, filter_ptr, output_ptr,
         batch_size, input_height, input_width, input_channels,
         output_height, output_width, output_channels,
         filter_height, filter_width,
         strides_[1], strides_[2], pad_h, pad_w,
-        stream);
+        dtype, stream);
 
     OP_REQUIRES(context, result == cudaSuccess,
                 errors::Internal("SM120Conv2D kernel launch failed: ", cudaGetErrorString(result)));
@@ -281,8 +294,15 @@ class SM120FusedActivationOp : public OpKernel {
     auto output_ptr = output->flat<T>().data();
     int size = input.NumElements();
 
-    cudaError_t result = sm120_kernels::LaunchSM120FusedActivation<T>(
-        input_ptr, output_ptr, size, activation_type_, stream);
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    SM120ActivationType sm120_activation;
+    if (activation_ == "relu") sm120_activation = SM120_ACTIVATION_RELU;
+    else if (activation_ == "gelu") sm120_activation = SM120_ACTIVATION_GELU;
+    else if (activation_ == "swish") sm120_activation = SM120_ACTIVATION_SWISH;
+    else sm120_activation = SM120_ACTIVATION_RELU;
+
+    cudaError_t result = sm120_launch_activation(
+        input_ptr, output_ptr, size, sm120_activation, dtype, stream);
 
     OP_REQUIRES(context, result == cudaSuccess,
                 errors::Internal("SM120FusedActivation kernel launch failed: ", cudaGetErrorString(result)));
@@ -371,11 +391,12 @@ class SM120ScaledDotProductAttentionOp : public OpKernel {
     auto output_ptr = output->flat<T>().data();
     auto attention_weights_ptr = attention_weights->flat<float>().data();
 
-    cudaError_t result = sm120_kernels::LaunchSM120ScaledDotProductAttention<T>(
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaError_t result = sm120_launch_attention(
         queries_ptr, keys_ptr, values_ptr,
         output_ptr, attention_weights_ptr,
         batch_size, seq_len, head_dim, scale_,
-        stream);
+        dtype, stream);
 
     OP_REQUIRES(context, result == cudaSuccess,
                 errors::Internal("SM120ScaledDotProductAttention kernel launch failed: ", cudaGetErrorString(result)));
@@ -453,8 +474,9 @@ class SM120BenchmarkOp : public OpKernel {
 
         cudaEventRecord(start, stream);
         for (int i = 0; i < iterations_; i++) {
-            sm120_kernels::LaunchSM120FusedActivation<T>(
-                input_ptr, output_ptr, size, sm120_kernels::ActivationType::RELU, stream);
+            SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+            sm120_launch_activation(
+                input_ptr, output_ptr, size, SM120_ACTIVATION_RELU, dtype, stream);
         }
         cudaEventRecord(stop, stream);
         cudaEventSynchronize(stop);

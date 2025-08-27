@@ -8,12 +8,21 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/util/gpu_device_functions.h"
-#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
-#include "cuda_kernels/sm120_primitives.cu"
-#include "cuda_kernels/sm120_error_handling.h"
+extern "C" {
+#include "cuda_kernels/sm120_c_interface.h"
+}
+#include "sm120_stream_utils.h"
 #include <cstdlib>
 
 namespace tensorflow {
+
+// Helper macro for CUDA error checking
+#define SM120_CUDA_CHECK(call) do { \
+    cudaError_t error = call; \
+    if (error != cudaSuccess) { \
+        LOG(ERROR) << "CUDA error: " << cudaGetErrorString(error); \
+    } \
+} while(0)
 
 // Security: Check if ops should fallback in training mode when gradients are not implemented
 inline bool sm120_safe_training_mode() {
@@ -132,9 +141,16 @@ class SM120BatchNormalizationOp : public OpKernel {
     T* batch_mean = batch_mean_tensor->flat<T>().data();
     T* batch_variance = batch_variance_tensor->flat<T>().data();
     
-    SM120_CUDA_CHECK(LaunchSM120BatchNorm<T>(
-        input, scale, offset, output, batch_mean, batch_variance,
-        N, H, W, C, epsilon_, is_training_, stream->parent()));
+    // Use the C interface batch norm
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaStream_t cuda_stream = sm120_utils::GetCudaStreamSafe(context);
+
+    cudaError_t result = sm120_launch_batch_norm(
+        input, scale, offset, estimated_mean, estimated_variance, output,
+        N, H, W, C, epsilon_, dtype, cuda_stream);
+
+    OP_REQUIRES(context, result == cudaSuccess,
+                errors::Internal("SM120BatchNorm failed: ", cudaGetErrorString(result)));
     
     // Copy current statistics to reserve space for gradient computation
     cudaMemcpyAsync(reserve_space_1_tensor->flat<T>().data(), batch_mean,
@@ -235,12 +251,20 @@ class SM120LayerNormalizationOp : public OpKernel {
     // Launch kernel
     auto* stream = context->op_device_context()->stream();
     
-    SM120_CUDA_CHECK(LaunchSM120LayerNorm<T>(
+    // Use the C interface layer norm
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaStream_t cuda_stream = stream->parent()->implementation()->GpuStreamHack();
+
+    cudaError_t result = sm120_launch_layer_norm(
         input_tensor.flat<T>().data(),
         scale_tensor.flat<T>().data(),
         offset_tensor.flat<T>().data(),
         output_tensor->flat<T>().data(),
-        outer_dim, inner_dim, epsilon_, stream->parent()));
+        nullptr, nullptr,  // mean and variance outputs not used here
+        outer_dim, inner_dim, epsilon_, dtype, cuda_stream);
+
+    OP_REQUIRES(context, result == cudaSuccess,
+                errors::Internal("SM120LayerNorm failed: ", cudaGetErrorString(result)));
   }
 
  private:
@@ -419,10 +443,17 @@ class SM120SoftmaxOp : public OpKernel {
     // Launch kernel
     auto* stream = context->op_device_context()->stream();
     
-    SM120_CUDA_CHECK(LaunchSM120Softmax<T>(
+    // Use the C interface softmax
+    SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+    cudaStream_t cuda_stream = stream->parent()->implementation()->GpuStreamHack();
+
+    cudaError_t result = sm120_launch_softmax(
         logits_tensor.flat<T>().data(),
         output_tensor->flat<T>().data(),
-        outer_size, axis_size, inner_size, stream->parent()));
+        outer_size, axis_size, inner_size, dtype, cuda_stream);
+
+    OP_REQUIRES(context, result == cudaSuccess,
+                errors::Internal("SM120Softmax failed: ", cudaGetErrorString(result)));
   }
 
  private:
@@ -486,11 +517,18 @@ class SM120EmbeddingLookupOp : public OpKernel {
     auto* stream = context->op_device_context()->stream();
     
     if (std::is_same_v<Tindices, int32>) {
-      SM120_CUDA_CHECK(LaunchSM120EmbeddingLookup<T>(
+      // Use the C interface embedding lookup
+      SM120DataType dtype = (sizeof(T) == 4) ? SM120_DTYPE_FLOAT32 : SM120_DTYPE_FLOAT16;
+      cudaStream_t cuda_stream = stream->parent()->implementation()->GpuStreamHack();
+
+      cudaError_t result = sm120_launch_embedding_lookup(
           reinterpret_cast<const int*>(ids_tensor.flat<Tindices>().data()),
           params_tensor.flat<T>().data(),
           output_tensor->flat<T>().data(),
-          num_ids, 1, vocab_size, embed_dim, stream->parent()));
+          num_ids, vocab_size, embed_dim, dtype, cuda_stream);
+
+      OP_REQUIRES(context, result == cudaSuccess,
+                  errors::Internal("SM120EmbeddingLookup failed: ", cudaGetErrorString(result)));
     } else {
       // Convert int64 to int32 for kernel
       // TODO: Implement int64 support in kernel

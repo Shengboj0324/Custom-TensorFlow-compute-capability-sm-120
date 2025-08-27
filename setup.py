@@ -491,8 +491,8 @@ setup(
     # Entry points
     entry_points={
         "console_scripts": [
-            "sm120-benchmark=python.benchmark:main",
-            "sm120-validate=python.validate:main",
+            "sm120-benchmark=benchmark:main",
+            "sm120-validate=validate:main",
         ],
     },
     # Build requirements

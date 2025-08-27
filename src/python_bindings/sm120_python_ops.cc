@@ -15,7 +15,9 @@
 #include "tensorflow/python/framework/python_api.h"
 
 #if GOOGLE_CUDA
-#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
+extern "C" {
+#include "cuda_kernels/sm120_c_interface.h"
+}
 #endif
 
 namespace py = pybind11;
