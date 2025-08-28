@@ -82,6 +82,9 @@ else()
     set(HAVE_SM120_GPU FALSE)
 endif()
 
+# Initialize build options
+set(BUILD_TENSORFLOW_OPS OFF)
+
 # Find TensorFlow
 find_path(TENSORFLOW_INCLUDE_DIR
     NAMES tensorflow/core/framework/op.h
@@ -108,11 +111,19 @@ if(NOT TENSORFLOW_INCLUDE_DIR)
         set(TENSORFLOW_INCLUDE_DIR ${TF_INCLUDE_FROM_PYTHON})
         message(STATUS "Found TensorFlow headers via Python: ${TENSORFLOW_INCLUDE_DIR}")
     else()
-        message(FATAL_ERROR "TensorFlow headers not found. Please install TensorFlow development headers.")
+        message(WARNING "TensorFlow headers not found. Only pure CUDA layers will be built.")
+        set(BUILD_TENSORFLOW_OPS OFF)
     endif()
+else()
+    set(BUILD_TENSORFLOW_OPS ON)
 endif()
 
-message(STATUS "TensorFlow include directory: ${TENSORFLOW_INCLUDE_DIR}")
+if(BUILD_TENSORFLOW_OPS)
+    message(STATUS "TensorFlow include directory: ${TENSORFLOW_INCLUDE_DIR}")
+    message(STATUS "Building TensorFlow operations: YES")
+else()
+    message(STATUS "Building TensorFlow operations: NO (TensorFlow headers not found)")
+endif()
 
 # Find TensorFlow libraries
 execute_process(
@@ -189,14 +200,18 @@ else()
     message(STATUS "Found cuDNN headers: ${CUDNN_INCLUDE_DIR}")
 endif()
 
-# Include directories
+# Include directories - TensorFlow includes only if available
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${TENSORFLOW_INCLUDE_DIR}
     ${CUDA_INCLUDE_DIRS}
     ${CUDNN_INCLUDE_DIR}
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
 )
+
+# Add TensorFlow includes only for TensorFlow ops
+if(BUILD_TENSORFLOW_OPS AND TENSORFLOW_INCLUDE_DIR)
+    include_directories(${TENSORFLOW_INCLUDE_DIR})
+endif()
 
 # Preprocessor definitions
 add_definitions(-DGOOGLE_CUDA=1)
@@ -244,8 +259,10 @@ add_library(sm120_pure_kernels SHARED ${SM120_PURE_CUDA_SOURCES})
 # Step 2: Create C interface library (depends on pure kernels)
 add_library(sm120_c_interface SHARED ${SM120_C_INTERFACE_SOURCES})
 
-# Step 3: Create TensorFlow ops library (depends on C interface)
-add_library(sm120_tensorflow_ops SHARED ${SM120_TENSORFLOW_SOURCES})
+# Step 3: Create TensorFlow ops library (depends on C interface) - conditional
+if(BUILD_TENSORFLOW_OPS)
+    add_library(sm120_tensorflow_ops SHARED ${SM120_TENSORFLOW_SOURCES})
+endif()
 
 # Link CUDA libraries (only if found)
 set(CUDA_LIBS_TO_LINK
@@ -289,15 +306,17 @@ target_link_libraries(sm120_c_interface
     ${CUDA_CUDART_LIBRARY}
 )
 
-# Configure TensorFlow ops library
-set_target_properties(sm120_tensorflow_ops PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-)
+# Configure TensorFlow ops library - conditional
+if(BUILD_TENSORFLOW_OPS)
+    set_target_properties(sm120_tensorflow_ops PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+    )
 
-target_link_libraries(sm120_tensorflow_ops
-    sm120_c_interface
-    ${CUDA_CUDART_LIBRARY}
-)
+    target_link_libraries(sm120_tensorflow_ops
+        sm120_c_interface
+        ${CUDA_CUDART_LIBRARY}
+    )
+endif()
 
 # ============================================================================
 # COMPILER FLAGS FOR EACH LAYER
@@ -324,49 +343,49 @@ target_compile_options(sm120_c_interface PRIVATE
 )
 
 # TensorFlow ops - comprehensive flags to suppress TensorFlow warnings
-target_compile_options(sm120_tensorflow_ops PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:
-        -Wno-unused-parameter
-        -Wno-unused-variable
-        -Wno-deprecated-declarations
-        -Wno-error=deprecated-declarations
-        -Wno-error
-    >
-)
-        -Wno-unused-variable
-        -Wno-deprecated-declarations
-        -Wno-error=deprecated-declarations
-        -Wno-error
-    >
-)
+if(BUILD_TENSORFLOW_OPS)
+    target_compile_options(sm120_tensorflow_ops PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:
+            -Wno-unused-parameter
+            -Wno-unused-variable
+            -Wno-deprecated-declarations
+            -Wno-error=deprecated-declarations
+            -Wno-error
+        >
+    )
+endif()
 
-set_target_properties(sm120_tensorflow_ops PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME "_sm120_ops"
-)
+if(BUILD_TENSORFLOW_OPS)
+    set_target_properties(sm120_tensorflow_ops PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        OUTPUT_NAME "_sm120_ops"
+    )
+endif()
 
-# Python extension module
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+# Python extension module - conditional
+if(BUILD_TENSORFLOW_OPS)
+    find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
 
-add_library(sm120_python_module SHARED
-    src/python_bindings/sm120_python_ops.cc
-)
+    add_library(sm120_python_module SHARED
+        src/python_bindings/sm120_python_ops.cc
+    )
 
-target_include_directories(sm120_python_module PRIVATE
-    ${Python3_INCLUDE_DIRS}
-)
+    target_include_directories(sm120_python_module PRIVATE
+        ${Python3_INCLUDE_DIRS}
+    )
 
-target_link_libraries(sm120_python_module
-    sm120_tensorflow_ops
-    ${Python3_LIBRARIES}
-)
+    target_link_libraries(sm120_python_module
+        sm120_tensorflow_ops
+        ${Python3_LIBRARIES}
+    )
 
-set_target_properties(sm120_python_module PROPERTIES
-    PREFIX ""
-    OUTPUT_NAME "_sm120_ops"
-    SUFFIX ".so"
-    POSITION_INDEPENDENT_CODE ON
-)
+    set_target_properties(sm120_python_module PROPERTIES
+        PREFIX ""
+        OUTPUT_NAME "_sm120_ops"
+        SUFFIX ".so"
+        POSITION_INDEPENDENT_CODE ON
+    )
+endif()
 
 # Test executables
 option(BUILD_TESTS "Build test executables" ON)
@@ -438,12 +457,21 @@ endif()
 # INSTALLATION
 # ============================================================================
 
-# Install all three layers
-install(TARGETS sm120_pure_kernels sm120_c_interface sm120_tensorflow_ops
+# Install CUDA layers (always available)
+install(TARGETS sm120_pure_kernels sm120_c_interface
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
 )
+
+# Install TensorFlow ops if built
+if(BUILD_TENSORFLOW_OPS)
+    install(TARGETS sm120_tensorflow_ops
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+    )
+endif()
 
 install(FILES ${SM120_HEADERS}
     DESTINATION include/tensorflow_sm120
