@@ -19,8 +19,8 @@
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/platform/stream_executor.h"
 
-using namespace nvcuda;
 namespace cg = cooperative_groups;
+namespace wmma = nvcuda::wmma;
 
 // Constants for sm_120 architecture
 constexpr int SM120_WARP_SIZE = 32;

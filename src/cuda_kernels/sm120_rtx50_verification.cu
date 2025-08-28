@@ -10,7 +10,6 @@
 #include <cooperative_groups.h>
 #include <cub/cub.cuh>
 
-using namespace nvcuda;
 namespace cg = cooperative_groups;
 
 // ============================================================================

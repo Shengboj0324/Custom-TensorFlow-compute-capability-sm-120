@@ -14,7 +14,7 @@ extern "C" {
 #include <curand_kernel.h>
 
 namespace cg = cooperative_groups;
-using namespace nvcuda;
+namespace wmma = nvcuda::wmma;
 
 // SM120 Batch Normalization kernel
 template<typename T>

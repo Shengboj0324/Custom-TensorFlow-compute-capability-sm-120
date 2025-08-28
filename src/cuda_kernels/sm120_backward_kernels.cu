@@ -15,7 +15,7 @@ extern "C" {
 #include <cooperative_groups/memcpy_async.h>
 
 namespace cg = cooperative_groups;
-using namespace nvcuda;
+namespace wmma = nvcuda::wmma;
 
 // SM120 optimized matrix multiplication gradient kernels
 template<typename T>

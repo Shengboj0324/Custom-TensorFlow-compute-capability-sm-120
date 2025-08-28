@@ -20,8 +20,8 @@
 
 // Pure CUDA implementation - no TensorFlow headers needed in .cu file
 
-using namespace nvcuda;
 namespace cg = cooperative_groups;
+namespace wmma = nvcuda::wmma;
 
 // Constants for sm_120 architecture (RTX 50-series specifications)
 constexpr int SM120_WARP_SIZE = 32;
