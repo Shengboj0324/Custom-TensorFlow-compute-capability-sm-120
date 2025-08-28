@@ -19,7 +19,7 @@ tf_cuda_library(
         "cuda_kernels/sm120_optimized_kernels_fixed.cu",
     ]),
     hdrs = if_cuda([
-        "cuda_kernels/sm120_kernel_launcher_fixed.h",
+        "cuda_kernels/sm120_c_interface.h",
     ]),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1",
@@ -64,7 +64,7 @@ tf_cuda_library(
         "tensorflow_ops/sm120_kernel_implementations.cu",
     ]),
     hdrs = if_cuda([
-        "cuda_kernels/sm120_kernel_launcher_fixed.h",
+        "cuda_kernels/sm120_c_interface.h",
     ]),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1",
@@ -104,7 +104,7 @@ tf_kernel_library(
         "tensorflow_ops/sm120_ops_fixed.cc",
     ],
     hdrs = if_cuda([
-        "cuda_kernels/sm120_kernel_launcher_fixed.h",
+        "cuda_kernels/sm120_c_interface.h",
     ]),
     gpu_srcs = if_cuda([
         "tensorflow_ops/sm120_ops_fixed.cc",
@@ -211,18 +211,18 @@ genrule(
 genrule(
     name = "generate_docs",
     srcs = [
-        "cuda_kernels/sm120_kernel_launcher_fixed.h",
-        "tensorflow_ops/sm120_ops_fixed.cc",
+        "cuda_kernels/sm120_c_interface.h",
+        "tensorflow_ops/sm120_ops.cc",
     ],
     outs = ["sm120_api_docs.html"],
     cmd = """
         echo "<html><head><title>SM120 API Documentation</title></head><body>" > $@
         echo "<h1>TensorFlow sm_120 Optimizations API</h1>" >> $@
         echo "<h2>CUDA Kernels</h2>" >> $@
-        grep -E "^(template|cudaError_t|class|struct)" $(location cuda_kernels/sm120_kernel_launcher_fixed.h) | \
+        grep -E "^(template|cudaError_t|class|struct)" $(location cuda_kernels/sm120_c_interface.h) | \
             sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/^/<pre>/' | sed 's/$$/</pre>/' >> $@
         echo "<h2>TensorFlow Operations</h2>" >> $@
-        grep -E "^(REGISTER_OP|template|class)" $(location tensorflow_ops/sm120_ops_fixed.cc) | \
+        grep -E "^(REGISTER_OP|template|class)" $(location tensorflow_ops/sm120_ops.cc) | \
             sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/^/<pre>/' | sed 's/$$/</pre>/' >> $@
         echo "</body></html>" >> $@
     """,
@@ -247,6 +247,6 @@ alias(
 
 # Export targets for external use
 exports_files([
-    "cuda_kernels/sm120_kernel_launcher_fixed.h",
-    "tensorflow_ops/sm120_ops_fixed.cc",
+    "cuda_kernels/sm120_c_interface.h",
+    "tensorflow_ops/sm120_ops.cc",
 ])

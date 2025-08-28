@@ -9,7 +9,11 @@
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/util/gpu_device_functions.h"
-#include "cuda_kernels/sm120_kernel_launcher_fixed.h"
+// Removed problematic TensorFlow header - using C interface instead
+extern "C" {
+#include "cuda_kernels/sm120_c_interface.h"
+}
+#include "sm120_stream_utils.h"
 #include "cuda_kernels/sm120_backward_kernels.h"
 
 namespace tensorflow {
