@@ -13,6 +13,8 @@ import platform
 from pathlib import Path
 from setuptools import setup, find_packages
 from pybind11.setup_helpers import Pybind11Extension, build_ext
+from distutils.spawn import spawn
+import shutil
 
 import pybind11
 
@@ -326,6 +328,59 @@ class SM120BuildExt(build_ext):
 
         super().build_extensions()
 
+    def build_extension(self, ext):
+        """Override to handle CUDA compilation."""
+        # Separate CUDA and C++ sources
+        cuda_sources = [s for s in ext.sources if s.endswith('.cu')]
+        cpp_sources = [s for s in ext.sources if not s.endswith('.cu')]
+
+        if cuda_sources:
+            # Compile CUDA sources with nvcc
+            self.compile_cuda_sources(ext, cuda_sources)
+            # Remove CUDA sources from extension to avoid double compilation
+            ext.sources = cpp_sources
+
+        # Build the rest normally
+        super().build_extension(ext)
+
+    def compile_cuda_sources(self, ext, cuda_sources):
+        """Compile CUDA sources with nvcc."""
+        nvcc = shutil.which('nvcc')
+        if not nvcc:
+            raise RuntimeError("nvcc not found. Please ensure CUDA toolkit is installed.")
+
+        build_temp = self.build_temp
+        os.makedirs(build_temp, exist_ok=True)
+
+        for source in cuda_sources:
+            # Generate object file path
+            obj_name = os.path.splitext(os.path.basename(source))[0] + '.o'
+            obj_path = os.path.join(build_temp, obj_name)
+
+            # Build nvcc command
+            nvcc_cmd = [nvcc]
+
+            # Add include directories
+            for inc_dir in ext.include_dirs:
+                nvcc_cmd.extend(['-I', inc_dir])
+
+            # Add CUDA-specific flags
+            if hasattr(ext, 'extra_compile_args') and isinstance(ext.extra_compile_args, dict):
+                nvcc_cmd.extend(ext.extra_compile_args.get('nvcc', []))
+
+            # Add source and output
+            nvcc_cmd.extend(['-c', source, '-o', obj_path])
+
+            print(f"Compiling CUDA source: {source}")
+            try:
+                spawn(nvcc_cmd)
+                # Add compiled object to extension
+                if not hasattr(ext, 'extra_objects'):
+                    ext.extra_objects = []
+                ext.extra_objects.append(obj_path)
+            except Exception as e:
+                raise RuntimeError(f"CUDA compilation failed for {source}: {e}")
+
     def configure_extension(self, ext, tf_info, cuda_info, has_sm120):
         """Configure extension with proper flags and libraries."""
         # Include directories
@@ -359,6 +414,24 @@ class SM120BuildExt(build_ext):
             "-std=c++17",
             "-O3",
             "-fPIC",
+            # Suppress TensorFlow deprecation warnings
+            "-Wno-deprecated-declarations",
+            "-Wno-error=deprecated-declarations",
+        ]
+
+        # CUDA-specific flags for .cu files
+        cuda_flags = [
+            "-O3",
+            "--use_fast_math",
+            "--expt-relaxed-constexpr",
+            "--expt-extended-lambda",
+            "-gencode=arch=compute_89,code=sm_89",
+            "-gencode=arch=compute_86,code=sm_86",
+            "-gencode=arch=compute_80,code=sm_80",
+            "-gencode=arch=compute_75,code=sm_75",
+            "--maxrregcount=128",
+            "-Xcompiler=-fPIC",
+            "-Xcompiler=-Wno-deprecated-declarations",
         ]
 
         if has_sm120:
@@ -372,6 +445,15 @@ class SM120BuildExt(build_ext):
 
         ext.extra_compile_args.extend(compile_flags)
 
+        # Add CUDA flags for NVCC compilation
+        if not hasattr(ext, 'extra_compile_args'):
+            ext.extra_compile_args = {}
+        if isinstance(ext.extra_compile_args, list):
+            # Convert to dict format for per-language flags
+            ext.extra_compile_args = {'cxx': ext.extra_compile_args, 'nvcc': cuda_flags}
+        else:
+            ext.extra_compile_args['nvcc'] = cuda_flags
+
         # Link flags
         if platform.system() == "Linux":
             ext.extra_link_args.extend(["-Wl,--as-needed", "-Wl,--no-undefined"])
@@ -384,9 +466,9 @@ def get_extensions():
     # Source files (include CUDA sources - nvcc handles .cu files)
     sources = [
         "src/python_bindings/sm120_python_ops.cc",
-        "src/tensorflow_ops/sm120_ops_fixed.cc",
-        "src/cuda_kernels/sm120_optimized_kernels_fixed.cu",
-        "src/tensorflow_ops/sm120_kernel_implementations.cu",
+        "src/tensorflow_ops/sm120_ops.cc",
+        "src/cuda_kernels/sm120_pure_kernels.cu",
+        "src/cuda_kernels/sm120_c_interface.cu",
     ]
 
     # Get TensorFlow include directories
