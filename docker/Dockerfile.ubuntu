@@ -229,21 +229,31 @@ export TF_SET_ANDROID_WORKSPACE=0
 
 # Configure TensorFlow build (non-interactive)
 log_info "Configuring TensorFlow build..."
+export TF_NEED_CUDA=1
+export TF_CUDA_VERSION=12.8
+export TF_CUDNN_VERSION=9.8
+export TF_CUDA_COMPUTE_CAPABILITIES=12.0
+export CUDA_TOOLKIT_PATH=/usr/local/cuda
+export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
+export TF_CUDA_CLANG=1
+export CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
+export GCC_HOST_COMPILER_PATH=/usr/bin/gcc
+export TF_NEED_TENSORRT=0
+export TF_NEED_ROCM=0
+export TF_NEED_OPENCL_SYCL=0
+export TF_NEED_MPI=0
+export TF_SET_ANDROID_WORKSPACE=0
+
 python3 configure.py << 'CONFIG_EOF'
 
-/usr/bin/python3
-/usr/local/lib/python3.10/dist-packages
-y
+
 12.8
+9.8
+12.0
 /usr/local/cuda
 /usr/lib/x86_64-linux-gnu
-12.0
-y
-/usr/bin/clang
-n
-n
-n
-n
+
+-Wno-sign-compare
 CONFIG_EOF
 
 # Create .bazelrc for sm_120 optimization
@@ -265,7 +275,7 @@ build:cuda --copt=-DTF_EXTRA_CUDA_CAPABILITIES=12.0
 # Resource limits for Docker
 build --local_ram_resources=HOST_RAM*0.8
 build --local_cpu_resources=HOST_CPUS*0.8
-build --jobs=\$(nproc)
+build --jobs=HOST_CPUS
 BAZELRC_EOF
 
 # Create complete configuration answers file
@@ -283,7 +293,7 @@ ANSWERS_EOF
 # Build TensorFlow with optimizations
 log_info "Starting TensorFlow build with Bazel..."
 bazel build --config=cuda --config=opt \
-    --jobs=\$JOBS \
+    --jobs=HOST_CPUS \
     --verbose_failures \
     --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0" \
     --action_env TF_CUDA_VERSION="12.8" \
