@@ -95,12 +95,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # GCC is already available in the base image, no additional compiler installation needed
 
-# Install cuDNN 9.x for CUDA 12.4
+# Install cuDNN 9.x for CUDA 12.8 with proper verification
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libcudnn9-dev-cuda-12 \
     libcudnn9-cuda-12 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* && \
+    # Verify cuDNN installation and create proper symlinks
+    ldconfig && \
+    echo "=== cuDNN Installation Verification ===" && \
+    find /usr -name "*cudnn*" -type f 2>/dev/null | head -10 && \
+    ls -la /usr/include/cudnn* 2>/dev/null || echo "cuDNN headers not in /usr/include" && \
+    ls -la /usr/lib/x86_64-linux-gnu/libcudnn* 2>/dev/null || echo "cuDNN libs not in standard location" && \
+    echo "=== End cuDNN Verification ==="
 
 # Install Bazel via Bazelisk (automatically manages Bazel versions)
 RUN BAZELISK_VERSION="v1.19.0" && \
@@ -229,14 +236,46 @@ export TF_SET_ANDROID_WORKSPACE=0
 
 # Configure TensorFlow build (non-interactive)
 log_info "Configuring TensorFlow build..."
+
+# Find correct cuDNN paths with comprehensive detection
+log_info "Detecting cuDNN installation paths..."
+
+# Default paths
+CUDNN_INCLUDE_PATH="/usr/include"
+CUDNN_LIB_PATH="/usr/lib/x86_64-linux-gnu"
+
+# Verify cuDNN installation
+if [ -f "/usr/include/cudnn.h" ]; then
+    log_info "Found cuDNN headers in /usr/include"
+    CUDNN_INCLUDE_PATH="/usr/include"
+elif [ -f "/usr/local/cuda/include/cudnn.h" ]; then
+    log_info "Found cuDNN headers in /usr/local/cuda/include"
+    CUDNN_INCLUDE_PATH="/usr/local/cuda/include"
+else
+    log_warning "cuDNN headers not found, using default path"
+fi
+
+if [ -f "/usr/lib/x86_64-linux-gnu/libcudnn.so" ]; then
+    log_info "Found cuDNN libraries in /usr/lib/x86_64-linux-gnu"
+    CUDNN_LIB_PATH="/usr/lib/x86_64-linux-gnu"
+elif [ -f "/usr/local/cuda/lib64/libcudnn.so" ]; then
+    log_info "Found cuDNN libraries in /usr/local/cuda/lib64"
+    CUDNN_LIB_PATH="/usr/local/cuda/lib64"
+else
+    log_warning "cuDNN libraries not found, using default path"
+fi
+
+log_info "Using cuDNN include path: $CUDNN_INCLUDE_PATH"
+log_info "Using cuDNN lib path: $CUDNN_LIB_PATH"
+
 export TF_NEED_CUDA=1
 export TF_CUDA_VERSION=12.8
-export TF_CUDNN_VERSION=9.8
+export TF_CUDNN_VERSION=9
 export TF_CUDA_COMPUTE_CAPABILITIES=12.0
 export CUDA_TOOLKIT_PATH=/usr/local/cuda
-export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
-export TF_CUDA_CLANG=1
-export CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
+export CUDNN_INSTALL_PATH=$CUDNN_LIB_PATH
+export TF_CUDA_CLANG=0
+export CLANG_CUDA_COMPILER_PATH=""
 export GCC_HOST_COMPILER_PATH=/usr/bin/gcc
 export TF_NEED_TENSORRT=0
 export TF_NEED_ROCM=0
@@ -244,14 +283,14 @@ export TF_NEED_OPENCL_SYCL=0
 export TF_NEED_MPI=0
 export TF_SET_ANDROID_WORKSPACE=0
 
-python3 configure.py << 'CONFIG_EOF'
+python3 configure.py << CONFIG_EOF
 
 
 12.8
-9.8
+9
 12.0
 /usr/local/cuda
-/usr/lib/x86_64-linux-gnu
+$CUDNN_LIB_PATH
 
 -Wno-sign-compare
 CONFIG_EOF
