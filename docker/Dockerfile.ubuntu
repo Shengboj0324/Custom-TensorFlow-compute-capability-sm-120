@@ -259,7 +259,7 @@ build --local_cpu_resources=HOST_CPUS*0.8
 BAZELRC_EOF
 
 # Create complete configuration answers file
-cat > /tmp/tf_configure_answers.txt << 'EOF'
+cat > /tmp/tf_configure_answers.txt << 'ANSWERS_EOF'
 
 
 8.9
@@ -268,6 +268,32 @@ cat > /tmp/tf_configure_answers.txt << 'EOF'
 
 n
 -Wno-sign-compare
+ANSWERS_EOF
+
+# Build TensorFlow with optimizations
+log_info "Starting TensorFlow build with Bazel..."
+bazel build --config=cuda --config=opt \
+    --jobs=\$JOBS \
+    --verbose_failures \
+    --copt=-Wno-error=c23-extensions \
+    --copt=-Wno-error=unused-command-line-argument \
+    --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0" \
+    //tensorflow/tools/pip_package:build_pip_package
+
+# Create wheel package
+log_info "Creating wheel package..."
+mkdir -p /workspace/build
+./bazel-bin/tensorflow/tools/pip_package/build_pip_package /workspace/build
+
+# Copy to project directory if mounted
+if [[ -d "/workspace/project" ]]; then
+    cp /workspace/build/*.whl /workspace/project/ 2>/dev/null || true
+    log_success "Wheel copied to project directory"
+fi
+
+log_success "TensorFlow sm_120 build completed successfully!"
+log_info "Wheel package available in: /workspace/build/"
+ls -la /workspace/build/*.whl
 EOF
 
 RUN chmod +x /workspace/build-tensorflow-optimized.sh
