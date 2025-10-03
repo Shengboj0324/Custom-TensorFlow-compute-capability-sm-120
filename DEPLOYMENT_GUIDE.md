@@ -16,7 +16,7 @@ This guide provides comprehensive instructions for deploying TensorFlow SM120 op
 ### Software Requirements ✅
 - [ ] **Ubuntu 22.04+ / CentOS 9+ / Windows 11 + WSL2**
 - [ ] **CUDA Toolkit 12.8+** installed
-- [ ] **cuDNN 9.7-9.8** installed
+- [ ] **cuDNN 9.8+** installed
 - [ ] **Python 3.9-3.13** available
 - [ ] **Git** for repository access
 

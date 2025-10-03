@@ -18,7 +18,7 @@ This comprehensive guide walks you through building TensorFlow with native suppo
 | Software | Version | Installation |
 |----------|---------|-------------|
 | **CUDA Toolkit** | 12.8+ | `sudo apt install cuda-toolkit-12-8` |
-| **cuDNN** | 9.7-9.8 | `sudo apt install libcudnn9-dev-cuda-12` |
+| **cuDNN** | 9.8+ | `sudo apt install libcudnn9-dev-cuda-12` |
 | **LLVM** | 22.x | `sudo apt install clang-22 llvm-22-dev` |
 | **Bazel** | Latest | Via Bazelisk (automatic) |
 | **Python** | 3.9-3.13 | `python3 --version` |

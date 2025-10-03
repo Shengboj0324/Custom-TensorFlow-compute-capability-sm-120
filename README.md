@@ -38,7 +38,7 @@ This project provides **production-ready TensorFlow optimizations** specifically
 - [ ] NVIDIA RTX 50-series GPU (5080/5090)
 - [ ] NVIDIA drivers 570.x or newer
 - [ ] CUDA Toolkit 12.8+
-- [ ] cuDNN 9.7-9.8
+- [ ] cuDNN 9.8+
 - [ ] LLVM 22
 - [ ] Python 3.9-3.13
 - [ ] Git
@@ -75,7 +75,7 @@ pip install ./build/tensorflow-*.whl
 | Component | Version | Notes |
 |-----------|---------|-------|
 | **CUDA Toolkit** | **12.8+** | Required for sm_120 support |
-| **cuDNN** | **9.7-9.8** | Compatible with CUDA 12.8 |
+| **cuDNN** | **9.8+** | Compatible with CUDA 12.8 |
 | **LLVM** | **22** | Stable versions won't work |
 | **Bazel** | Latest supported | TensorFlow's build system |
 | **Python** | 3.9-3.13 | Supported by TensorFlow |

@@ -26,7 +26,7 @@ tf_cuda_library(
         "-DEIGEN_USE_GPU",
         "--expt-relaxed-constexpr",
         "--expt-extended-lambda",
-        "-gencode=arch=compute_89,code=sm_89",   # Highest supported target
+        "-gencode=arch=compute_120,code=sm_120",  # RTX 50-series primary target
         "-gencode=arch=compute_89,code=sm_89",    # RTX 40-series fallback
         "-gencode=arch=compute_86,code=sm_86",    # RTX 30-series fallback
         "-use_fast_math",
@@ -212,7 +212,7 @@ genrule(
     name = "generate_docs",
     srcs = [
         "cuda_kernels/sm120_c_interface.h",
-        "tensorflow_ops/sm120_ops.cc",
+        "tensorflow_ops/sm120_ops_fixed.cc",
     ],
     outs = ["sm120_api_docs.html"],
     cmd = """
@@ -222,7 +222,7 @@ genrule(
         grep -E "^(template|cudaError_t|class|struct)" $(location cuda_kernels/sm120_c_interface.h) | \
             sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/^/<pre>/' | sed 's/$$/</pre>/' >> $@
         echo "<h2>TensorFlow Operations</h2>" >> $@
-        grep -E "^(REGISTER_OP|template|class)" $(location tensorflow_ops/sm120_ops.cc) | \
+        grep -E "^(REGISTER_OP|template|class)" $(location tensorflow_ops/sm120_ops_fixed.cc) | \
             sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/^/<pre>/' | sed 's/$$/</pre>/' >> $@
         echo "</body></html>" >> $@
     """,
@@ -248,5 +248,5 @@ alias(
 # Export targets for external use
 exports_files([
     "cuda_kernels/sm120_c_interface.h",
-    "tensorflow_ops/sm120_ops.cc",
+    "tensorflow_ops/sm120_ops_fixed.cc",
 ])

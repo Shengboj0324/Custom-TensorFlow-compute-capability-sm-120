@@ -49,8 +49,8 @@ check_prerequisites() {
     fi
     
     CUDA_VERSION=$(nvcc --version | grep "release" | sed -n 's/.*release \([0-9]\+\.[0-9]\+\).*/\1/p')
-    if ! (( $(echo "$CUDA_VERSION >= 12.4" | bc -l) )); then
-        log_error "CUDA $CUDA_VERSION found, but 12.4+ required"
+    if ! (( $(echo "$CUDA_VERSION >= 12.8" | bc -l) )); then
+        log_error "CUDA $CUDA_VERSION found, but 12.8+ required"
         exit 1
     fi
     log_success "CUDA $CUDA_VERSION found"
@@ -183,8 +183,8 @@ configure_tensorflow() {
     export TF_NEED_CUDA=1
     export TF_NEED_TENSORRT=0
     export TF_CUDA_VERSION=$CUDA_VERSION
-    export TF_CUDNN_VERSION=9
-    export CUDA_TOOLKIT_PATH=/usr/local/cuda-12.4
+    export TF_CUDNN_VERSION=9.8
+    export CUDA_TOOLKIT_PATH=/usr/local/cuda
     export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
     export TF_CUDA_COMPUTE_CAPABILITIES="12.0"
     export GCC_HOST_COMPILER_PATH=$(which gcc)

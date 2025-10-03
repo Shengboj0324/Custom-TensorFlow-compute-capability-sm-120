@@ -466,7 +466,7 @@ def get_extensions():
     # Source files (include CUDA sources - nvcc handles .cu files)
     sources = [
         "src/python_bindings/sm120_python_ops.cc",
-        "src/tensorflow_ops/sm120_ops.cc",
+        "src/tensorflow_ops/sm120_ops_fixed.cc",
         "src/cuda_kernels/sm120_pure_kernels.cu",
         "src/cuda_kernels/sm120_c_interface.cu",
     ]
@@ -477,23 +477,49 @@ def get_extensions():
         "src",
     ]
 
-    # Add TensorFlow includes if available
+    # Initialize extension parameters
+    libraries = []
+    library_dirs = []
+    extra_compile_args = ["-std=c++17", "-O3"]
+    extra_link_args = []
+
+    # Add TensorFlow includes and linking if available
     try:
         tf_includes, tf_libs, tf_compile_flags, tf_link_flags = find_tensorflow()
         include_dirs.extend(tf_includes)
-    except Exception:
-        # TensorFlow not available during setup - will be installed later
-        pass
+        library_dirs.extend(tf_libs)
+        extra_compile_args.extend(tf_compile_flags)
+        extra_link_args.extend(tf_link_flags)
+
+        # Add TensorFlow framework library for symbol resolution
+        libraries.append("tensorflow_framework")
+
+        # Ensure proper ABI compatibility
+        import tensorflow as tf
+        if hasattr(tf.sysconfig, 'CXX11_ABI_FLAG'):
+            abi_flag = tf.sysconfig.CXX11_ABI_FLAG
+            extra_compile_args.append(f"-D_GLIBCXX_USE_CXX11_ABI={abi_flag}")
+
+    except Exception as e:
+        print(f"Warning: TensorFlow not available during setup: {e}")
+        print("Extension will be built without TensorFlow linking")
+
+    # Add CUDA libraries if available
+    try:
+        import pynvml
+        extra_link_args.extend(["-lcuda", "-lcudart", "-lcublas", "-lcurand"])
+    except ImportError:
+        print("Warning: CUDA libraries may not be properly linked")
 
     # Main extension
     ext = Pybind11Extension(
         "_sm120_ops",
         sources=sources,
         include_dirs=include_dirs,
-        libraries=[],
-        library_dirs=[],
-        extra_compile_args=[],
-        extra_link_args=[],
+        libraries=libraries,
+        library_dirs=library_dirs,
+        extra_compile_args=extra_compile_args,
+        extra_link_args=extra_link_args,
         language="c++",
     )
 

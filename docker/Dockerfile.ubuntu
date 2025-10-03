@@ -1,7 +1,7 @@
 # TensorFlow sm_120 Build Environment - Ubuntu 22.04 LTS
 # Optimized for RTX 50-series GPU support with compute capability 12.0
 
-FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-devel-ubuntu22.04
 
 # Metadata
 LABEL maintainer="TensorFlow sm_120 Build Team"
@@ -35,8 +35,8 @@ ENV TF_NEED_OPENCL_SYCL=0
 ENV TF_NEED_ROCM=0
 ENV TF_NEED_CUDA=1
 ENV TF_NEED_TENSORRT=0
-ENV TF_CUDA_VERSION=12.4
-ENV TF_CUDNN_VERSION=9
+ENV TF_CUDA_VERSION=12.8
+ENV TF_CUDNN_VERSION=9.8
 ENV TF_CUDA_COMPUTE_CAPABILITIES=12.0
 ENV TF_SET_ANDROID_WORKSPACE=0
 ENV BUILD_WITH_FULL_OPTIMIZATIONS=1
@@ -214,9 +214,9 @@ export PYTHON_LIB_PATH=\$(python3 -c "import site; print(site.getsitepackages()[
 # Set all TensorFlow configuration environment variables for non-interactive build
 export TF_NEED_CUDA=1
 export TF_NEED_TENSORRT=0
-export TF_CUDA_VERSION=12.4
-export TF_CUDNN_VERSION=9
-export TF_CUDA_COMPUTE_CAPABILITIES=8.9
+export TF_CUDA_VERSION=12.8
+export TF_CUDNN_VERSION=9.8
+export TF_CUDA_COMPUTE_CAPABILITIES=12.0
 export CUDA_TOOLKIT_PATH=/usr/local/cuda
 export CUDNN_INSTALL_PATH=/usr/lib/x86_64-linux-gnu
 export TF_CUDA_CLANG=1
@@ -237,10 +237,10 @@ build --python_path="/usr/bin/python3"
 # CUDA configuration
 build:cuda --define=using_cuda=true
 build:cuda --define=using_cuda_nvcc=true
-build:cuda --action_env TF_CUDA_VERSION="12.4"
-build:cuda --action_env TF_CUDNN_VERSION="9"
+build:cuda --action_env TF_CUDA_VERSION="12.8"
+build:cuda --action_env TF_CUDNN_VERSION="9.8"
 build:cuda --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
-build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="8.9"
+build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0"
 build:cuda --action_env GCC_HOST_COMPILER_PATH="/usr/bin/gcc"
 build:cuda --action_env CLANG_CUDA_COMPILER_PATH="/usr/bin/clang"
 build:cuda --action_env TF_CUDA_CLANG="1"

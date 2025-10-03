@@ -35,7 +35,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 
 # Find required packages
-find_package(CUDA 12.4 REQUIRED)
+find_package(CUDA 12.8 REQUIRED)
 find_package(PkgConfig REQUIRED)
 
 # CUDA architecture settings for sm_120
@@ -58,8 +58,9 @@ message(STATUS "  CUDA Flags: ${CMAKE_CUDA_FLAGS}")
 message(STATUS "  CXX Flags: ${CMAKE_CXX_FLAGS}")
 message(STATUS "  Deprecation warnings suppressed: YES")
 
-# Advanced CUDA compiler flags for future sm_120 support
-# Note: sm_120 not yet supported in CUDA 12.4, using highest available
+# Advanced CUDA compiler flags for sm_120 support
+# Note: sm_120 now supported in CUDA 12.8
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_120,code=sm_120")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_89,code=sm_89")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_86,code=sm_86")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode=arch=compute_80,code=sm_80")
