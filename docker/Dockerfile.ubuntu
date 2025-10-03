@@ -227,35 +227,45 @@ export TF_NEED_ROCM=0
 export TF_NEED_MPI=0
 export TF_SET_ANDROID_WORKSPACE=0
 
-# Create .bazelrc for non-interactive configuration
-cat > .bazelrc << 'BAZELRC_EOF'
-# Build configuration for sm_120 TensorFlow
-build --action_env PYTHON_BIN_PATH="/usr/bin/python3"
-build --action_env PYTHON_LIB_PATH="/usr/local/lib/python3.10/dist-packages"
-build --python_path="/usr/bin/python3"
+# Configure TensorFlow build (non-interactive)
+log_info "Configuring TensorFlow build..."
+python3 configure.py << 'CONFIG_EOF'
 
-# CUDA configuration
-build:cuda --define=using_cuda=true
-build:cuda --define=using_cuda_nvcc=true
-build:cuda --action_env TF_CUDA_VERSION="12.8"
-build:cuda --action_env TF_CUDNN_VERSION="9.8"
-build:cuda --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
+/usr/bin/python3
+/usr/local/lib/python3.10/dist-packages
+y
+12.8
+/usr/local/cuda
+/usr/lib/x86_64-linux-gnu
+12.0
+y
+/usr/bin/clang
+n
+n
+n
+n
+CONFIG_EOF
+
+# Create .bazelrc for sm_120 optimization
+log_info "Creating optimized .bazelrc configuration..."
+cat >> .bazelrc << 'BAZELRC_EOF'
+
+# SM120 Optimization Configuration
+build:opt --copt=-march=native
+build:opt --copt=-O3
+build:opt --copt=-DNDEBUG
+build:opt --copt=-Wno-error=c23-extensions
+build:opt --copt=-Wno-error=unused-command-line-argument
+
+# CUDA SM120 specific flags
 build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0"
-build:cuda --action_env GCC_HOST_COMPILER_PATH="/usr/bin/gcc"
-build:cuda --action_env CLANG_CUDA_COMPILER_PATH="/usr/bin/clang"
-build:cuda --action_env TF_CUDA_CLANG="1"
-
-# Optimization flags
-build --config=opt
-build --copt=-march=native
-build --copt=-O3
-build --copt=-DNDEBUG
-build --copt=-Wno-error=c23-extensions
-build --copt=-Wno-error=unused-command-line-argument
+build:cuda --copt=-DGOOGLE_CUDA=1
+build:cuda --copt=-DTF_EXTRA_CUDA_CAPABILITIES=12.0
 
 # Resource limits for Docker
 build --local_ram_resources=HOST_RAM*0.8
 build --local_cpu_resources=HOST_CPUS*0.8
+build --jobs=\$(nproc)
 BAZELRC_EOF
 
 # Create complete configuration answers file
@@ -275,9 +285,9 @@ log_info "Starting TensorFlow build with Bazel..."
 bazel build --config=cuda --config=opt \
     --jobs=\$JOBS \
     --verbose_failures \
-    --copt=-Wno-error=c23-extensions \
-    --copt=-Wno-error=unused-command-line-argument \
     --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0" \
+    --action_env TF_CUDA_VERSION="12.8" \
+    --action_env TF_CUDNN_VERSION="9.8" \
     //tensorflow/tools/pip_package:build_pip_package
 
 # Create wheel package
