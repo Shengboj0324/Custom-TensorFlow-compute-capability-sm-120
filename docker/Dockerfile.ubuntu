@@ -234,48 +234,35 @@ export TF_NEED_ROCM=0
 export TF_NEED_MPI=0
 export TF_SET_ANDROID_WORKSPACE=0
 
-# Configure TensorFlow build (non-interactive)
-log_info "Configuring TensorFlow build..."
+# Configure TensorFlow build (non-interactive) - DISABLE HERMETIC CUDA
+log_info "Configuring TensorFlow build with system CUDA/cuDNN..."
 
-# Find correct cuDNN paths with comprehensive detection
+# Detect cuDNN installation paths
 log_info "Detecting cuDNN installation paths..."
+find /usr -name "cudnn.h" 2>/dev/null | head -5
+find /usr -name "libcudnn.so*" 2>/dev/null | head -5
 
-# Default paths
-CUDNN_INCLUDE_PATH="/usr/include"
-CUDNN_LIB_PATH="/usr/lib/x86_64-linux-gnu"
-
-# Verify cuDNN installation
+# Determine cuDNN paths
+CUDNN_PATHS=""
 if [ -f "/usr/include/cudnn.h" ]; then
     log_info "Found cuDNN headers in /usr/include"
-    CUDNN_INCLUDE_PATH="/usr/include"
+    CUDNN_PATHS="/usr"
 elif [ -f "/usr/local/cuda/include/cudnn.h" ]; then
     log_info "Found cuDNN headers in /usr/local/cuda/include"
-    CUDNN_INCLUDE_PATH="/usr/local/cuda/include"
+    CUDNN_PATHS="/usr/local/cuda"
 else
-    log_warning "cuDNN headers not found, using default path"
+    log_warning "cuDNN headers not found, using default"
+    CUDNN_PATHS="/usr"
 fi
 
-if [ -f "/usr/lib/x86_64-linux-gnu/libcudnn.so" ]; then
-    log_info "Found cuDNN libraries in /usr/lib/x86_64-linux-gnu"
-    CUDNN_LIB_PATH="/usr/lib/x86_64-linux-gnu"
-elif [ -f "/usr/local/cuda/lib64/libcudnn.so" ]; then
-    log_info "Found cuDNN libraries in /usr/local/cuda/lib64"
-    CUDNN_LIB_PATH="/usr/local/cuda/lib64"
-else
-    log_warning "cuDNN libraries not found, using default path"
-fi
-
-log_info "Using cuDNN include path: $CUDNN_INCLUDE_PATH"
-log_info "Using cuDNN lib path: $CUDNN_LIB_PATH"
-
+# Set environment variables for NON-HERMETIC build
 export TF_NEED_CUDA=1
 export TF_CUDA_VERSION=12.8
-export TF_CUDNN_VERSION=""
+export TF_CUDNN_VERSION=9.8
 export TF_CUDA_COMPUTE_CAPABILITIES=12.0
 export CUDA_TOOLKIT_PATH=/usr/local/cuda
-export CUDNN_INSTALL_PATH=""
+export TF_CUDA_PATHS="/usr/local/cuda,$CUDNN_PATHS"
 export TF_CUDA_CLANG=0
-export CLANG_CUDA_COMPILER_PATH=""
 export GCC_HOST_COMPILER_PATH=/usr/bin/gcc
 export TF_NEED_TENSORRT=0
 export TF_NEED_ROCM=0
@@ -283,20 +270,39 @@ export TF_NEED_OPENCL_SYCL=0
 export TF_NEED_MPI=0
 export TF_SET_ANDROID_WORKSPACE=0
 
+log_info "Using TF_CUDA_PATHS: $TF_CUDA_PATHS"
+
+# Run TensorFlow configure with CORRECTED inputs
+log_info "Running TensorFlow configure with proper paths..."
 python3 configure.py << 'CONFIG_EOF'
 
 
 12.8
-
+9.8
 12.0
 /usr/local/cuda
-
+$CUDNN_PATHS
 
 -Wno-sign-compare
 CONFIG_EOF
 
-# Create .bazelrc for sm_120 optimization
-log_info "Creating optimized .bazelrc configuration..."
+# Fix the generated .tf_configure.bazelrc to override hermetic settings
+log_info "Fixing generated .tf_configure.bazelrc..."
+if [ -f ".tf_configure.bazelrc" ]; then
+    # Override hermetic versions with our system versions
+    sed -i 's/HERMETIC_CUDA_VERSION=12.5.1/HERMETIC_CUDA_VERSION=12.8/g' .tf_configure.bazelrc
+    sed -i 's/HERMETIC_CUDNN_VERSION=9.3.0/HERMETIC_CUDNN_VERSION=9.8/g' .tf_configure.bazelrc
+
+    # Fix the incorrect LOCAL paths that are causing the error
+    sed -i 's/LOCAL_CUDA_PATH=9.8/LOCAL_CUDA_PATH=\/usr\/local\/cuda/g' .tf_configure.bazelrc
+    sed -i 's/LOCAL_CUDNN_PATH=12.0/LOCAL_CUDNN_PATH=\/usr/g' .tf_configure.bazelrc
+
+    log_info "Fixed .tf_configure.bazelrc paths"
+    grep -E "(LOCAL_CUDA_PATH|LOCAL_CUDNN_PATH|HERMETIC)" .tf_configure.bazelrc || true
+fi
+
+# Create .bazelrc to OVERRIDE hermetic CUDA versions
+log_info "Creating .bazelrc to override hermetic CUDA..."
 cat >> .bazelrc << 'BAZELRC_EOF'
 
 # SM120 Optimization Configuration
@@ -306,16 +312,21 @@ build:opt --copt=-DNDEBUG
 build:opt --copt=-Wno-error=c23-extensions
 build:opt --copt=-Wno-error=unused-command-line-argument
 
-# CUDA SM120 specific flags - Use system CUDA instead of hermetic
-build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0"
+# OVERRIDE hermetic CUDA versions with our system versions
+build:cuda_version --repo_env=HERMETIC_CUDA_VERSION=12.8
+build:cuda_version --repo_env=HERMETIC_CUDNN_VERSION=9.8
+
+# SM120 CUDA specific flags
+build:cuda --action_env=TF_NEED_CUDA=1
+build:cuda --action_env=TF_CUDA_VERSION=12.8
+build:cuda --action_env=TF_CUDNN_VERSION=9.8
+build:cuda --action_env=TF_CUDA_COMPUTE_CAPABILITIES=12.0
+build:cuda --action_env=CUDA_TOOLKIT_PATH=/usr/local/cuda
 build:cuda --copt=-DGOOGLE_CUDA=1
 build:cuda --copt=-DTF_EXTRA_CUDA_CAPABILITIES=12.0
-build:cuda --action_env TF_CUDA_VERSION="12.8"
-build:cuda --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
 
-# Disable hermetic CUDA to use system installation
+# Force system CUDA paths
 build --repo_env=TF_NEED_CUDA=1
-build --action_env=TF_CUDA_PATHS="/usr/local/cuda"
 
 # Resource limits for Docker
 build --local_ram_resources=HOST_RAM*0.8
@@ -335,16 +346,23 @@ n
 -Wno-sign-compare
 ANSWERS_EOF
 
-# Build TensorFlow with optimizations
-log_info "Starting TensorFlow build with Bazel..."
+# Build TensorFlow with CORRECTED CUDA paths
+log_info "Starting TensorFlow build with corrected CUDA configuration..."
+
+# Clean any cached state
+bazel clean --expunge
+
+# Build with corrected hermetic version overrides
 bazel build --config=cuda --config=opt \
     --jobs=HOST_CPUS \
     --verbose_failures \
-    --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0" \
-    --action_env TF_CUDA_VERSION="12.8" \
-    --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda" \
-    --action_env TF_CUDA_PATHS="/usr/local/cuda" \
-    --repo_env=TF_NEED_CUDA=1 \
+    --repo_env=HERMETIC_CUDA_VERSION=12.8 \
+    --repo_env=HERMETIC_CUDNN_VERSION=9.8 \
+    --action_env=TF_NEED_CUDA=1 \
+    --action_env=TF_CUDA_VERSION=12.8 \
+    --action_env=TF_CUDNN_VERSION=9.8 \
+    --action_env=TF_CUDA_COMPUTE_CAPABILITIES=12.0 \
+    --action_env=CUDA_TOOLKIT_PATH=/usr/local/cuda \
     //tensorflow/tools/pip_package:build_pip_package
 
 # Create wheel package
