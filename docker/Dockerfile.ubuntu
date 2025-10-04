@@ -270,10 +270,10 @@ log_info "Using cuDNN lib path: $CUDNN_LIB_PATH"
 
 export TF_NEED_CUDA=1
 export TF_CUDA_VERSION=12.8
-export TF_CUDNN_VERSION=9
+export TF_CUDNN_VERSION=""
 export TF_CUDA_COMPUTE_CAPABILITIES=12.0
 export CUDA_TOOLKIT_PATH=/usr/local/cuda
-export CUDNN_INSTALL_PATH=$CUDNN_LIB_PATH
+export CUDNN_INSTALL_PATH=""
 export TF_CUDA_CLANG=0
 export CLANG_CUDA_COMPILER_PATH=""
 export GCC_HOST_COMPILER_PATH=/usr/bin/gcc
@@ -283,14 +283,14 @@ export TF_NEED_OPENCL_SYCL=0
 export TF_NEED_MPI=0
 export TF_SET_ANDROID_WORKSPACE=0
 
-python3 configure.py << CONFIG_EOF
+python3 configure.py << 'CONFIG_EOF'
 
 
 12.8
-9
+
 12.0
 /usr/local/cuda
-$CUDNN_LIB_PATH
+
 
 -Wno-sign-compare
 CONFIG_EOF
@@ -306,10 +306,16 @@ build:opt --copt=-DNDEBUG
 build:opt --copt=-Wno-error=c23-extensions
 build:opt --copt=-Wno-error=unused-command-line-argument
 
-# CUDA SM120 specific flags
+# CUDA SM120 specific flags - Use system CUDA instead of hermetic
 build:cuda --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0"
 build:cuda --copt=-DGOOGLE_CUDA=1
 build:cuda --copt=-DTF_EXTRA_CUDA_CAPABILITIES=12.0
+build:cuda --action_env TF_CUDA_VERSION="12.8"
+build:cuda --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda"
+
+# Disable hermetic CUDA to use system installation
+build --repo_env=TF_NEED_CUDA=1
+build --action_env=TF_CUDA_PATHS="/usr/local/cuda"
 
 # Resource limits for Docker
 build --local_ram_resources=HOST_RAM*0.8
@@ -336,7 +342,9 @@ bazel build --config=cuda --config=opt \
     --verbose_failures \
     --action_env TF_CUDA_COMPUTE_CAPABILITIES="12.0" \
     --action_env TF_CUDA_VERSION="12.8" \
-    --action_env TF_CUDNN_VERSION="9.8" \
+    --action_env CUDA_TOOLKIT_PATH="/usr/local/cuda" \
+    --action_env TF_CUDA_PATHS="/usr/local/cuda" \
+    --repo_env=TF_NEED_CUDA=1 \
     //tensorflow/tools/pip_package:build_pip_package
 
 # Create wheel package

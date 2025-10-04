@@ -41,7 +41,7 @@ show_system_info() {
     echo -e "${BLUE}Memory:${NC} $(free -h | grep '^Mem:' | awk '{print $2}') total"
     echo -e "${BLUE}Disk Space:${NC} $(df -h . | tail -1 | awk '{print $4}') available"
     
-    if command -v nvidia-smi &> /dev/null; then
+    if command -v nvidia-smi &> /dev/null; then 
         echo -e "${BLUE}NVIDIA Driver:${NC} $(nvidia-smi --query-gpu=driver_version --format=csv,noheader,nounits | head -1)"
         echo -e "${BLUE}GPUs Detected:${NC}"
         nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader | while IFS=, read -r name compute_cap; do
